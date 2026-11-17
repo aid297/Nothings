@@ -1,7 +1,7 @@
 # secrets 模块与对称加密（AES）设计
 
 - 日期：2026-09-11
-- 状态：已确认，待实现
+- 状态：已实现（实现与设计的差异见文末「实现记录」）
 - 范围：新增 `nothings::secrets` 模块，定义统一对称加密接口 `Symmetric`，并提供 `secrets::symmetric::aes` 实现
 
 ## 背景与目标
@@ -181,3 +181,59 @@ key / iv 长度校验在 `encrypt` / `decrypt` 内部完成，trait 是唯一的
 - `cargo build --target wasm32-unknown-unknown` 通过
 - `cargo doc --no-deps` 无告警
 - 后续新增 SM4 时，只需实现 `Symmetric` 并加一个 `with_sm4_*` 工厂函数，无需改动 trait
+
+## 实现记录
+
+实现与上述设计的差异，以及落地时才暴露的事实：
+
+### setter 返回 `&mut Self` 而非 `&Self`
+
+设计里写的是对齐 `Bcrypt::set_origin(&mut self) -> &Self`。实现改为返回 `&mut Self`：
+`&Self` 会让 `cipher.set_key(k).set_iv(v)` 无法编译（第二次调用需要 `&mut`），
+仓库现有的 `Bcrypt` / `Sha256Hash` 存在同样的问题。新代码不复制这个缺陷，
+既有模块本次不动。
+
+### 补齐 `Aes192Gcm` 类型别名
+
+`aes-gcm` 0.11 只导出 `Aes128Gcm` 与 `Aes256Gcm`，没有 192。
+但其 `AesGcm<Aes, NonceSize, TagSize>` 的各 trait 实现都是对底层分组密码泛型的，
+因此在 `app.rs` 中自定义 `type Aes192Gcm = AesGcm<aes::Aes192, aes::cipher::consts::U12>;`
+即可，无需为 GCM 模式砍掉 AES-192 支持。四种模式 × 三种密钥长度的组合因此是完整的。
+
+### 加密与解密的错误文案分开
+
+GCM 加密失败（明文超长）与解密失败（tag 校验不通过）语义完全不同，
+若共用一条文案会让调用方在加密路径上看到「密文被篡改」这种误导信息。
+实现拆成 `gcm_encrypt_failed()`（`InvalidInput`）与 `decrypt_failed(mode)`（`InvalidData`）。
+
+### MSRV 从 1.85 抬升到 1.89
+
+`aes` 0.9.3 声明 `rust-version = 1.89`，高于 edition 2024 本身要求的 1.85。
+这是一个**对下游有影响的变化**，已在根 README 的安装说明中标注。
+如需保持 1.85，只能退回 `cipher 0.4` 系列（`aes` 0.8 / `aes-gcm` 0.10），
+但那是旧 API，不建议。
+
+### `AesMode::iv_len()` 是设计外新增
+
+写通用测试与文档示例时反复需要「该模式要几字节 iv」，
+于是把它做成 `AesMode` 的公开方法（ECB 返回 0）。属于设计里没写、实现中自然长出来的 API。
+
+### 密钥不做内存擦除
+
+`Aes` 把 key / iv 存在普通 `Vec<u8>` 中，`Drop` 时不清零。
+底层 crate 都提供 `zeroize` feature 但本次未启用。
+已在 Aes README 的「已知限制」中如实披露，供有内存取证要求的调用方评估。
+
+### 验证结果
+
+- `cargo test`：304 个单元测试 + 21 个文档测试全部通过（新增 29 个）
+- `cargo build --target wasm32-unknown-unknown` 与 `--target wasm32-wasip1` 均通过
+- `cargo doc --no-deps` 无 secrets 相关告警
+- `cargo clippy --all-targets`：secrets 模块 0 告警
+  （仓库其它模块存量 136 处告警，本次未处理）
+- KAT 向量来源：CBC / ECB 取自 `cbc` / `ecb` crate 自带 doctest 并用 LibreSSL
+  `openssl enc` 独立复算逐字节核对；CTR 取自 NIST SP 800-38A F.5.1 并用 LibreSSL 复算；
+  GCM 取自 `aes-gcm` crate 内置的 NIST CAVS `gcmEncryptExtIV128.rsp` 向量
+- 未执行 rustfmt：仓库整体非 rustfmt 格式（存量 136 处差异），
+  且 rustfmt 会把 test.rs 中多行书写的 NIST 向量压成单行，损害可读性
+

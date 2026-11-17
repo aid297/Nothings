@@ -8,6 +8,7 @@ pub mod digests;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod filesystem;
 pub mod http_responses;
+pub mod secrets;
 pub mod singletons;
 pub mod texts;
 pub mod validations;

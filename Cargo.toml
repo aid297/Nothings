@@ -23,6 +23,11 @@ nothings-macros = { version = "0.0.2", path = "nothings-macros" }
 serde = { version = "1.0.229", features = ["derive"] }
 lz4_flex = { version = "0.14", features = ["frame"] }
 serde_json = "1"
+aes = "0.9"
+cbc = { version = "0.2", features = ["alloc"] }
+ctr = { version = "0.10", features = ["alloc"] }
+ecb = { version = "0.2", features = ["alloc"] }
+aes-gcm = { version = "0.11", default-features = false, features = ["aes", "alloc"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 zstd = "0.13"

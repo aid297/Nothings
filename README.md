@@ -1,6 +1,6 @@
 # nothings
 
-一个实用的 Rust 工具库。核心是 `AnySlice<T>`（增强版 `Vec<T>`）与 `AnyMap<K, V>`（有序键值对映射），另外提供 LZ4 / zlib / Zstandard 压缩、Bcrypt / MD5 / SHA256 摘要、文件与目录操作、统一 HTTP 响应结构、时间字符串解析、声明式结构体校验、单例宏，以及面向 Go 宿主的 Wasm C-ABI 导出层。
+一个实用的 Rust 工具库。核心是 `AnySlice<T>`（增强版 `Vec<T>`）与 `AnyMap<K, V>`（有序键值对映射），另外提供 LZ4 / zlib / Zstandard 压缩、AES 对称加密、Bcrypt / MD5 / SHA256 摘要、文件与目录操作、统一 HTTP 响应结构、时间字符串解析、声明式结构体校验、单例宏，以及面向 Go 宿主的 Wasm C-ABI 导出层。
 
 ## 安装
 
@@ -9,8 +9,8 @@
 nothings = "0.0.9"
 ```
 
-- MSRV：edition 2024（需 Rust 1.85+）
-- 平台：原生平台支持全部模块；`wasm32-unknown-unknown` / `wasm32-wasip1` 下 `filesystem` 与 `compressions::zstd4` 不参与编译（zstd 为 C 绑定）
+- MSRV：edition 2024（需 Rust 1.89+，由 `aes` / `aes-gcm` 依赖决定）
+- 平台：原生平台支持全部模块；`wasm32-unknown-unknown` / `wasm32-wasip1` 下 `filesystem` 与 `compressions::zstd4` 不参与编译（zstd 为 C 绑定）。`secrets` 为纯 Rust 实现，两种 wasm 目标下均可用
 
 ## 模块目录
 
@@ -25,6 +25,8 @@ nothings = "0.0.9"
 | **Zlib** | `nothings::compressions::zlib::app` | zlib 压缩/解压，0-9 级压缩级别 | [README](src/compressions/zlib/README.md) |
 | **Zstd** | `nothings::compressions::zstd4::app` | Zstandard 压缩/解压，1-21 级压缩级别（非 wasm） | [README](src/compressions/zstd4/README.md) |
 | **Digests** | `nothings::digests` | `Bcrypt` 密码哈希与验证、`Md5Hash`、`Sha256Hash` | [README](src/digests/README.md) |
+| **Secrets** | `nothings::secrets` | 加密模块总览：`Symmetric` trait 与 `with_aes_gcm()` / `with_aes_cbc()` / `with_aes_ctr()` / `with_aes_ecb()` 4 个工厂函数，用于把加密算法作为参数传递 | [README](src/secrets/README.md) |
+| **Aes** | `nothings::secrets::symmetric::aes::app` | AES-128/192/256 加密解密，GCM / CBC / CTR / ECB 四种模式，纯 Rust 实现，可用于 wasm | [README](src/secrets/symmetric/aes/README.md) |
 | **Filesystem** | `nothings::filesystem` | `File` / `Dir`：读写、移动、删除、权限设置、整目录打包/还原（非 wasm） | [README](src/filesystem/README.md) |
 | **HttpResponse** | `nothings::http_responses` | 可序列化的统一响应结构 `HttpResponse<T>`（`ok` / `bad_request` 等 7 个构造器） | [README](src/http_responses/README.md) |
 | **Texts / Timer** | `nothings::texts::timer` | 将 `"1h30m"`、`"2w3d"` 等字符串解析为 `std::time::Duration` | [README](src/texts/README.md) |
@@ -159,6 +161,36 @@ assert_eq!(
     "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
 );
 ```
+
+### 对称加密
+
+```rust
+use nothings::secrets::symmetric::aes::app::Aes;
+use nothings::secrets::{with_aes_cbc, Symmetric};
+
+// AES-GCM：随机密钥 + 随机 nonce，密文自带 16 字节认证 tag
+let key = Aes::generate_key(256).unwrap();   // 32 字节
+let nonce = Aes::generate_nonce();           // 12 字节，需随密文一起保存
+
+let cipher = Aes::gcm(&key, &nonce);
+let encrypted = cipher.encrypt(b"hello world").unwrap();
+assert_eq!(encrypted.len(), b"hello world".len() + 16);
+assert_eq!(cipher.decrypt(&encrypted).unwrap(), b"hello world");
+
+// 篡改一个字节，GCM 会解密失败
+let mut tampered = encrypted.clone();
+tampered[0] ^= 0x01;
+assert!(cipher.decrypt(&tampered).is_err());
+
+// 工厂函数：把算法作为参数传递
+fn seal(data: &[u8], cipher: &dyn Symmetric) -> Vec<u8> {
+    cipher.encrypt(data).unwrap()
+}
+
+assert!(!seal(b"hello", &*with_aes_cbc(&[0x42; 16], &[0x24; 16])).is_empty());
+```
+
+CBC / CTR / ECB 三种模式不校验密文完整性，仅在与既有系统互通时使用，详见 [Aes README](src/secrets/symmetric/aes/README.md)。
 
 ### Filesystem — 文件与目录
 
