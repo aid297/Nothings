@@ -122,7 +122,7 @@ DATETIME / DATE / DECIMAL / JSON 一律降级为 `Text`，无类型保真。
 - `cargo clippy --all-targets`：新增代码 0 告警。
 - `cargo tree`：根 crate 无 DB 依赖；新 crate 无 native-tls / openssl / zlib-sys / tokio，只有一份 `mysql_common`。
 - `python3 docs/ai/tools/gen_api_index.py --check` 返回 0。
-- MSRV：`rustc 1.96.0` 编译通过。`cargo +1.89.0 check` **未实测成功**——1.89.0 toolchain 下载/安装受网络限制中断（缺 manifest），不能声称通过。`mysql 28.0.4` / `mysql_common 0.37.3` 均未声明 `rust-version`，关键依赖 `lru 0.18.5` 声明 1.85.0，静态推断不高于仓库声明的 1.89+。验证命令：`rustup toolchain install 1.89.0 --profile minimal && cargo +1.89.0 check --manifest-path nothings-orm-mysql/Cargo.toml`；若失败按 `mysql 26.0.1` → `25.0.1` 回退（保持 `default-features = false`）。
+- MSRV：**1.89 实测通过**。`rustc +1.89.0 --version` = `rustc 1.89.0 (29483883e 2025-08-04)`，`cargo +1.89.0 check --manifest-path nothings-orm-mysql/Cargo.toml` 编译 `mysql 28.0.4` + `mysql_common 0.37.3` 及全部传递依赖成功（`Finished dev profile`），无需版本回退。安装 1.89 toolchain 时默认源下载卡住，改用 `RUSTUP_DIST_SERVER=https://rsproxy.cn` + `RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup` 镜像 12 秒装完（末尾 rustup 自更新的 `rustup-init` 权限报错与工具链无关）。静态旁证：`mysql` / `mysql_common` 未声明 `rust-version`，关键依赖 `lru 0.18.5` 声明 1.85.0，均不高于 1.89。余下 `mysql 26.0.1` → `25.0.1` 回退路径仅作未来依赖升级时的预案。
 
 ### 落地偏差（实测）
 
@@ -152,4 +152,4 @@ DATETIME / DATE / DECIMAL / JSON 一律降级为 `Text`，无类型保真。
 
 **实测**：10 个时区集成测试（真 MySQL 8.0.46）覆盖 ORM=UTC/DB=+8 写入读回、裸 SQL 查库墙钟差 8 小时、TIMESTAMP 与 DATETIME 一致、查询条件共用转换、负偏移与 +05:45/-03:30、i64 不受影响、微秒（需 `DATETIME(6)`）、会话时区校验、旧入口兼容。全套 29 测通过，clippy 0 告警。契约 465 → 488 items。
 
-**MSRV**：不引入 chrono/time，仍 1.89+；1.89 toolchain 实测仍未成功，保持原有标注。
+**MSRV**：不引入 chrono/time，仍 1.89+；`cargo +1.89.0 check --manifest-path nothings-orm-mysql/Cargo.toml` 于 2026-11-18 实测通过（rsproxy 镜像装工具链），见上方验收节。

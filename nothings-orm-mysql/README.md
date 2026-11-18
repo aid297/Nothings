@@ -4,7 +4,7 @@
 
 - 版本：0.0.1
 - edition：2024
-- MSRV：跟随仓库 1.89+；`mysql 28.0.4` 未声明 `rust-version`，1.89 工具链实测状态见 `docs/ai/spec/51-mysql-driver-design.md`
+- MSRV：1.89+（2026-11-18 用 `cargo +1.89.0 check` 实测通过，`mysql 28.0.4` 及全部依赖在 1.89.0 下编译无误；详见 `docs/ai/spec/51-mysql-driver-design.md`）
 - License：MIT
 
 ## 依赖取舍

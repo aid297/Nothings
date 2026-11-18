@@ -39,7 +39,7 @@ MANIFESTS: list[tuple[str, Path]] = [
 SPEC_VERSION = "nothings-public-api/v1"
 GENERATOR_VERSION = 3
 # Not in Cargo.toml: determined by the `aes 0.9` dependency (rust-version 1.89).
-# mysql 28.0.4 / mysql_common 0.37.3 未声明 rust-version；MSRV 实测状态见 spec/51。
+# mysql 28.0.4 / mysql_common 0.37.3 未声明 rust-version；已用 cargo +1.89.0 check 实测通过，见 spec/51。
 MSRV = "1.89+"
 
 # Key is "Owner::name" (for methods/fields) or "name" (for free items).
