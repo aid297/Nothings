@@ -84,6 +84,8 @@ fn to_sql(value: &Value) -> SqlValue {
         Value::F64(v) => SqlValue::Real(*v),
         Value::Text(v) => SqlValue::Text(v.clone()),
         Value::Blob(v) => SqlValue::Blob(v.clone()),
+        // SQLite 无列类型、无会话时区：按 ORM 墙钟原样写 TEXT。
+        Value::DateTime(v) => SqlValue::Text(v.to_string()),
     }
 }
 

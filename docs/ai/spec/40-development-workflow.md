@@ -38,15 +38,15 @@
 
 ## 5. 场景 E：新增独立 crate
 
-以本次新增 `nothings-orm` / `nothings-orm-sqlite` 为例。文档层原来只覆盖「新增模块」，独立 crate 是新增场景。
+以新增 `nothings-orm` / `nothings-orm-sqlite` / `nothings-orm-mysql` 为例。文档层原来只覆盖「新增模块」，独立 crate 是新增场景。
 
 1. 建 `<crate>/Cargo.toml`（edition 2024、license MIT、`crate-type = ["lib"]`）+ `src/lib.rs` + `README.md` + `tests/`。
 2. 若依赖另一个本地 crate，用 `{ version = "x.y.z", path = "..." }` 双声明；发布时 Cargo 剥离 path 按 version 从 crates.io 解析。
 3. **改生成器**：`docs/ai/tools/gen_api_index.py` 的 `SOURCE_ROOTS` 加新源根与模块前缀，`MANIFESTS` 加新 manifest，否则契约静默漏收且 `--check` 仍返回 0。
 4. 同步 `AGENTS.md` §1/§4/§8、`llms.txt` 独立 crate 段、`docs/ai/README.md` 文件职责表、`spec/00` 标识/消费面/依赖/模块树/版本表、`spec/10` 新小节、`spec/30` 新边界条目（若适用）。
-5. 较大设计变更先落 `spec/NN-xxx-design.md`（含空的「实现记录」节）作为设计基线。
-6. 验收：三个 crate 各自 `cargo test --manifest-path ...`；`cargo tree | grep` 确认根 crate 未被新依赖污染；`gen_api_index.py --check` 返回 0。
-7. 发布顺序按依赖拓扑：宏 crate → 核心 crate → 驱动 crate，逐个 `cargo publish --dry-run --manifest-path ...`。
+5. 较大设计变更先落 `spec/NN-xxx-design.md`（含空的「实现记录」节）作为设计基线，例如 `spec/51-mysql-driver-design.md`。
+6. 验收：四个 crate 各自 `cargo test --manifest-path ...`（`nothings-orm-mysql` 需 `NOTHINGS_MYSQL_DSN`，强制真实 MySQL，缺变量直接失败；时区集成测试在 `tests/timezone.rs`）；`cargo tree | grep` 确认根 crate 未被新依赖污染；`gen_api_index.py --check` 返回 0。
+7. 发布顺序按依赖拓扑：宏 crate → 核心 crate → 各驱动 crate → 根 crate，逐个 `cargo publish --dry-run --manifest-path ...`。
 
 ## 6. 场景 F：发布前检查
 
@@ -56,8 +56,8 @@
 | 2 | `cargo test`（含 doctest） |
 | 3 | `cargo clippy --all-targets`（新增代码 0 告警）、`cargo doc --no-deps` |
 | 4 | `python3 docs/ai/tools/gen_api_index.py --check` 返回 0 |
-| 5 | `cargo publish --dry-run`；按依赖拓扑顺序：`nothings-macros` → `nothings-orm` → `nothings-orm-sqlite` → 根 `nothings`，path + version 双依赖要求前置 crate 已上传 |
-| 6 | 新增 crate 时：每个 crate 各自 `cargo test --manifest-path ...`，且 `cargo tree` 确认根 crate 未被 DB 依赖污染 |
+| 5 | `cargo publish --dry-run`；按依赖拓扑顺序：`nothings-macros` → `nothings-orm` → `nothings-orm-sqlite` → `nothings-orm-mysql` → 根 `nothings`，path + version 双依赖要求前置 crate 已上传 |
+| 6 | 新增 crate 时：每个 crate 各自 `cargo test --manifest-path ...`，且 `cargo tree` 确认根 crate 未被 DB 依赖污染；MySQL 驱动还要确认无 native-tls / openssl / zlib-sys / tokio |
 
 ## 7. 文档同步矩阵
 
@@ -68,7 +68,7 @@
 | 改依赖 | ✅ | 视情况 | ✅ | ✅ | — | ✅ 重生成 |
 | 修已知缺陷 | ✅ | ✅ | ✅ 版本表 | ✅ | ✅ | ✅ 重生成 |
 | 版本升级 | ✅ | — | ✅ | — | — | ✅ 重生成 |
-| 新增独立 crate | ✅ | ✅ 新建 | ✅ 标识/消费面/依赖/模块树/版本表 | ✅ 新小节 | 视情况 | ✅ 改生成器后重生成 |
+| 新增独立 crate | ✅ | ✅ 新建 + 设计 spec | ✅ 标识/消费面/依赖/模块树/版本表 | ✅ 新小节 | ✅ 新增独立前缀条目 | ✅ 改生成器后重生成，核对实际 counts |
 | 新增 Cargo 依赖 | ✅ | 视情况 | ✅ | ✅ | — | ✅ 重生成 |
 
 ## 8. 决策记录模板
@@ -87,4 +87,4 @@
 ## 实现记录（设计与落地的差异，落地后才暴露的事实）
 ```
 
-「实现记录」这一节是硬要求：设计与代码出现偏差时必须写清原因（参考 `2026-09-11-secrets-symmetric-aes-design.md` 里 setter 返回 `&mut Self`、MSRV 抬升到 1.89 等记录）。
+「实现记录」这一节是硬要求：设计与代码出现偏差时必须写清原因（参考 `2026-09-11-secrets-symmetric-aes-design.md` 里 setter 返回 `&mut Self`、MSRV 抬升到 1.89 等记录）。`spec/51-mysql-driver-design.md` 是新增驱动 crate 的模板实例。

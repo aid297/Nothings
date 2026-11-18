@@ -20,11 +20,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 OUT = ROOT / "docs" / "ai" / "open-api" / "public-api.json"
 
-# (源根, crate 模块前缀)。三个 crate 各自独立，扫描器统一汇总。
+# (源根, crate 模块前缀)。四个 crate 各自独立，扫描器统一汇总。
 SOURCE_ROOTS: list[tuple[Path, str]] = [
     (ROOT / "src", "nothings"),
     (ROOT / "nothings-orm" / "src", "nothings_orm"),
     (ROOT / "nothings-orm-sqlite" / "src", "nothings_orm_sqlite"),
+    (ROOT / "nothings-orm-mysql" / "src", "nothings_orm_mysql"),
 ]
 SRC = SOURCE_ROOTS[0][0]  # 兼容旧引用；新逻辑一律走 SOURCE_ROOTS
 
@@ -32,11 +33,13 @@ MANIFESTS: list[tuple[str, Path]] = [
     ("nothings", ROOT / "Cargo.toml"),
     ("nothings-orm", ROOT / "nothings-orm" / "Cargo.toml"),
     ("nothings-orm-sqlite", ROOT / "nothings-orm-sqlite" / "Cargo.toml"),
+    ("nothings-orm-mysql", ROOT / "nothings-orm-mysql" / "Cargo.toml"),
 ]
 
 SPEC_VERSION = "nothings-public-api/v1"
-GENERATOR_VERSION = 2
+GENERATOR_VERSION = 3
 # Not in Cargo.toml: determined by the `aes 0.9` dependency (rust-version 1.89).
+# mysql 28.0.4 / mysql_common 0.37.3 未声明 rust-version；MSRV 实测状态见 spec/51。
 MSRV = "1.89+"
 
 # Key is "Owner::name" (for methods/fields) or "name" (for free items).
@@ -77,6 +80,10 @@ ANNOTATIONS: dict[str, tuple[str, str]] = {
     "Repository::transaction": ("limited", "ORM3: 只支持单层事务，嵌套返回 InvalidInput；Err 路径自动 rollback"),
     "Repository::get": ("limited", "ORM4: 未找到返回 NotFound；find_one 则返 Ok(None)"),
     "SqliteDriver::execute_batch": ("limited", "ORM5: 直接执行原始 SQL，仅供 DDL/测试，不经过参数化"),
+    # 编号说明：生成器里的 ORM1-ORM5 与 spec/30 的 ORM1-ORM7 是两套历史编号，
+    # 语义已错位，本次不重排；MySQL 驱动相关标注统一用 MYSQL* 前缀。
+    "MysqlDriver::execute_ddl": ("limited", "MYSQL5: 单条原始 DDL，不参数化；实测客户端允许多语句，绝不接用户输入"),
+    "MysqlDriver::connect_with_tz": ("limited", "MYSQL7: 双时区自动转换仅对 Value::DateTime 生效；TIMESTAMP/DATETIME 读回一律 Value::DateTime；固定偏移无 DST，SQLite 不支持"),
 }
 
 # Declared but never implemented; using them is a compile/behavior trap.

@@ -71,10 +71,28 @@ assert_eq!(User::COLUMNS.len(), 3);
 - 列名/表名不能参数化，必须在 `E::COLUMNS` 白名单内，否则 `InvalidInput`。
 - 事务只支持单层，无 savepoint；`Err` 路径自动 rollback。
 
+## 日期时间与时区
+
+`value` 模块提供两个零依赖类型（不引 chrono / time）：
+
+| 类型 | 说明 |
+| --- | --- |
+| `UtcOffset` | 固定 UTC 偏移，`UtcOffset::parse("+08:00")` / `UtcOffset::UTC`；无 DST |
+| `DateTime` | 墙钟日期时间，`DateTime::new(...)` / `DateTime::parse(...)` / `from_unix_secs(secs, offset)` |
+
+`Value` 新增 `DateTime(DateTime)` 变体，作为「这是需要时区转换的时间」的类型标记。`DateTime` 实现 `ToValue` / `FromValue` / `HasSqlType`（`SQL_TYPE = Text`），可直接作实体字段：
+
+```rust
+use nothings_orm::value::DateTime;
+// struct Event { #[entity(primary_key)] id: i64, at: DateTime }
+```
+
+转换由驱动的连接时区配置负责（`nothings-orm-mysql` 的 `connect_with_tz`）；`i64` Unix 时间戳不参与转换。派生宏生成的方法不进 JSON，以上 API 须看本节或 `docs/orm-cookbook.md`。
+
 ## 生成器盲区
 
 `docs/ai/open-api/public-api.json` 由 `docs/ai/tools/gen_api_index.py` 从源码文本提取，**不展开过程宏**。`#[derive(Entity)]` 生成的方法（`Schema::TABLE/COLUMNS/pk`、`Entity::from_row/pk_value/column_value`）不会出现在 JSON 中。查这些 API 请直接看本页与 `spec/50`。
 
 ## 不做
 
-async、连接池、缓存、关联加载、Migration、软删除/时间戳钩子、MySQL/Postgres 驱动。Phase 2 路线见 `spec/50`。
+async、连接池、缓存、关联加载、Migration、软删除/时间戳钩子、Postgres 驱动（MySQL 驱动已由 `nothings-orm-mysql` 提供，设计见 `docs/ai/spec/51-mysql-driver-design.md`）。Phase 2 路线见 `spec/50`。

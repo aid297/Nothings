@@ -92,7 +92,9 @@ orphan rule：不能 `impl From<rusqlite::Error> for io::Error`，驱动 crate �
 
 ## 明确不做（YAGNI）
 
-async / tokio；workspace；Cargo features；新公开错误类型；thiserror / anyhow；`serde::Deserialize` 派生；MySQL / Postgres 驱动；关联 / Migration / 钩子实现；trybuild；连接池、缓存、懒加载、复合主键、UUID 主键、SQL 日志、metrics；改 C-ABI（仓库已移除 wasm 导出层）；`cargo fmt`；新增 CI / Dockerfile / examples / Makefile。
+async / tokio；workspace；Cargo features；新公开错误类型；thiserror / anyhow；`serde::Deserialize` 派生；Postgres 驱动；关联 / Migration / 钩子实现；trybuild；连接池、缓存、懒加载、复合主键、UUID 主键、SQL 日志、metrics；改 C-ABI（仓库已移除 wasm 导出层）；`cargo fmt`；新增 CI / Dockerfile / examples / Makefile。
+
+MySQL 驱动已于 2026-11-18 作为独立 crate `nothings-orm-mysql` 落地，核心 / 宏 / SQLite 驱动零改动，设计见 `spec/51-mysql-driver-design.md`；本 spec 的 Phase 1 范围与验收基线不变。
 
 ## 测试计划
 

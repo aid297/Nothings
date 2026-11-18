@@ -4,17 +4,17 @@
 
 | 文件 | 消费面 | 维护方式 |
 | --- | --- | --- |
-| `public-api.json` | 3 个 crate 的公开 API | **生成物**，由 `../tools/gen_api_index.py` 从三个源根提取，禁止手改 |
+| `public-api.json` | 4 个 crate 的公开 API | **生成物**，由 `../tools/gen_api_index.py` 从四个源根提取，禁止手改 |
 
 ## public-api.json 结构
 
 | 顶层字段 | 含义 |
 | --- | --- |
 | `spec` / `generated_by` / `generator_version` | 契约格式版本与生成器 |
-| `source_roots` | 三个扫描根：`src` / `nothings-orm/src` / `nothings-orm-sqlite/src` |
-| `crates` | 三个 crate 的 name / manifest 路径 / version，由各 `Cargo.toml` 读取 |
+| `source_roots` | 四个扫描根：`src` / `nothings-orm/src` / `nothings-orm-sqlite/src` / `nothings-orm-mysql/src` |
+| `crates` | 四个 crate 的 name / manifest 路径 / version，由各 `Cargo.toml` 读取 |
 | `crate` | 兼容旧消费者：主 crate 的 manifest 摘要 |
-| `generator_version` | 2（从单源根升级到多源根） |
+| `generator_version` | 3（新增 MySQL 驱动源根） |
 | `platforms` | 编译目标，当前仅 `native` |
 | `status_legend` | `status` 取值说明 |
 | `issue_index` | 已知问题清单路径 |
@@ -27,7 +27,7 @@
 
 | 字段 | 含义 |
 | --- | --- |
-| `path` | 完整路径，格式为 `<crate>::<模块>::<Owner>::<方法>`；crate 前缀为 `nothings` / `nothings_orm` / `nothings_orm_sqlite` |
+| `path` | 完整路径，格式为 `<crate>::<模块>::<Owner>::<方法>`；crate 前缀为 `nothings` / `nothings_orm` / `nothings_orm_sqlite` / `nothings_orm_mysql` |
 | `module` | 所在模块路径 |
 | `kind` | `fn` / `struct` / `enum` / `trait` / `type` / `const` / `field` / `use` / `macro` |
 | `name` / `owner` / `visibility` | 名称、所属类型、可见性（`pub` 或 `inherited (trait method)`） |
@@ -71,6 +71,7 @@ python3 docs/ai/tools/gen_api_index.py --check    # 与源码不一致时返回�
 cargo test                                       # 根 crate：299 单测 + 21 doctest（1 ignored）
 cargo test --manifest-path nothings-orm/Cargo.toml
 cargo test --manifest-path nothings-orm-sqlite/Cargo.toml
+cargo test --manifest-path nothings-orm-mysql/Cargo.toml   # 需 NOTHINGS_MYSQL_DSN
 ```
 
 生成器只依赖 Python 标准库，不写时间戳，因此重复生成结果稳定，`--check` 可直接放进提交前检查。

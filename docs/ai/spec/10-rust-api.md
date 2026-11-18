@@ -126,9 +126,9 @@ pub struct HttpResponse<T> {
 
 空占位（`mod.rs` 只有 `pub mod app;`，`app.rs` 为 0 字节），不要基于它生成代码。
 
-### 独立 crate：`nothings-orm` / `nothings-orm-sqlite`
+### 独立 crate：`nothings-orm` / `nothings-orm-sqlite` / `nothings-orm-mysql`
 
-不是 `nothings` 的模块，而是两个独立 crate。完整设计见 `spec/50-orm-design.md`，用法见各自 README。
+不是 `nothings` 的模块，而是三个独立 crate。完整设计见 `spec/50-orm-design.md` 与 `spec/51-mysql-driver-design.md`，用法见各自 README。
 
 | 类型 | 关键签名 | 契约 |
 | --- | --- | --- |
@@ -137,10 +137,12 @@ pub struct HttpResponse<T> {
 | `Row` / `OwnedRow` | `column_count` / `column_name` / `value` | `Driver::query` 必须即时物化为 owned 行 |
 | `Schema` | `const TABLE` / `const COLUMNS` / `fn pk()` | 由 `#[derive(Entity)]` 生成 |
 | `Entity` | `from_row<R: Row>` / `pk_value` / `column_value` | 全部由宏生成，调用方需 `use nothings_orm::entity::Entity as EntityTrait` 才能调 trait 方法 |
-| `Driver` | `execute` / `query` / `last_insert_id` / `begin` / `commit` / `rollback` | 后端抽象；所有 SQL 必须参数化 |
+| `Driver` | `execute` / `query` / `last_insert_id` / `begin` / `commit` / `rollback` | 后端抽象；所有 SQL 必须参数化；驱动 crate 需显式 `use nothings_orm::driver::Driver` 才能 impl |
 | `Repository` | `insert` / `get` / `find_one` / `find_all` / `update` / `delete` / `query` / `transaction` | 泛型 `D: Driver`；`get` 未找到返 `NotFound`，`find_one` 返 `Ok(None)` |
-| `QueryBuilder` | `r#where` / `order_by` / `limit` / `offset` / `all` / `one` / `count` | 链式 `&mut Self`；列名必须在 schema 白名单内 |
+| `QueryBuilder` | `r#where` / `order_by` / `limit` / `offset` / `all` / `one` / `count` | 链式 `&mut Self`；列名必须在 schema 白名单内；MySQL 下 `offset()` 必须搭配 `limit()` |
 | `SqliteDriver` | `open(&str)` / `in_memory()` / `execute_batch(&str)` | rusqlite bundled；`execute_batch` 仅供 DDL/测试 |
+| `MysqlDriver` | `connect(&str)` / `connect_with_tz(&str, UtcOffset, UtcOffset)` / `execute_ddl(&str)` | 同步 `mysql` crate（minimal-rust）；`execute_ddl` 单条原始 DDL，不参数化；`impl Driver` 的 6 个方法在 JSON 中记为 `inherited (trait method)` |
+| `UtcOffset` / `DateTime` | `UtcOffset::parse` / `DateTime::new` / `parse` / `from_unix_secs` | `nothings-orm::value` 的零依赖时间类型；`Value::DateTime` 是时区转换的类型标记，`Text`/`I64` 不转 |
 
 派生宏生成的方法（`Schema` / `Entity` 的 impl）**不进 `public-api.json`**——生成器只扫源码文本，不展开过程宏。查这些 API 看 `nothings-orm/README.md`。
 
@@ -160,3 +162,6 @@ pub struct HttpResponse<T> {
 | `Entity::from_row` | trait 方法，需导入 `nothings_orm::entity::Entity as EntityTrait`；crate 根的同名 `Entity` 是派生宏 |
 | `QueryBuilder::r#where` | raw identifier，列名必须在 `E::COLUMNS` 白名单内 |
 | `SqliteDriver::execute_batch` | 原始 SQL，不参数化，禁止传用户输入 |
+| `MysqlDriver::execute_ddl` | 单条原始 DDL，不参数化；实测客户端允许多语句，禁止传用户输入 |
+| `MysqlDriver` 的 `Driver` 方法 | trait 方法在 `public-api.json` 中记为 `inherited (trait method)`；驱动 crate 需显式 `use nothings_orm::driver::Driver` |
+| `nothings-orm-mysql` 的 `query` | 原样保留 `AS __count` 别名与列名大小写；`QueryBuilder::offset()` 必须搭配 `limit()` |

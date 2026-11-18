@@ -10,7 +10,8 @@
 | 调用某个 Rust API | `open-api/public-api.json` | 对应 `src/**/README.md` + `spec/30-known-issues.md` |
 | 新增模块 / 改公开 API | `spec/40-development-workflow.md` | `spec/10-rust-api.md` |
 | 判断某个方法能不能用 | `spec/30-known-issues.md` | 源码 `src/**/app.rs` |
-| 用 ORM 做数据库操作 | `spec/50-orm-design.md` | `nothings-orm/README.md` + `nothings-orm-sqlite/README.md` |
+| 用 ORM 做数据库操作 | `spec/50-orm-design.md` | `nothings-orm/README.md` + 对应驱动 README（`nothings-orm-sqlite/README.md` / `nothings-orm-mysql/README.md`） |
+| 用 MySQL 驱动 | `spec/51-mysql-driver-design.md` | `nothings-orm-mysql/README.md` |
 
 仓库根的 `llms.txt` 是链接入口，供支持 llmstxt 的工具直接抓取。
 
@@ -23,15 +24,17 @@
 | `spec/30-known-issues.md` | 手写规格：禁用清单与安全边界 | 人工 |
 | `spec/40-development-workflow.md` | 手写规格：变更流程与验收标准 | 人工 |
 | `spec/50-orm-design.md` | 手写规格：ORM 设计与 Phase 2 路线图 | 人工 |
+| `spec/51-mysql-driver-design.md` | 手写规格：MySQL 驱动设计、映射表与实现记录 | 人工 |
 | `../../nothings-orm/README.md` | ORM 核心 crate 用法与属性语法 | 人工 |
 | `../../nothings-orm-sqlite/README.md` | SQLite 驱动用法与错误映射 | 人工 |
-| `open-api/public-api.json` | **生成物**：3 个 crate 的公开 API 清单 | `tools/gen_api_index.py` |
+| `../../nothings-orm-mysql/README.md` | MySQL 驱动用法、错误映射与已知边界 | 人工 |
+| `open-api/public-api.json` | **生成物**：4 个 crate 的公开 API 清单 | `tools/gen_api_index.py` |
 | `open-api/README.md` | 字段定义与校验方法 | 人工 |
-| `tools/gen_api_index.py` | 生成脚本，从 3 个源根提取 public item | 人工改脚本 |
+| `tools/gen_api_index.py` | 生成脚本，从 4 个源根提取 public item | 人工改脚本 |
 
 ## 事实来源优先级
 
-1. **源码**（`src/**/*.rs`、`nothings-orm/src/**`、`nothings-orm-sqlite/src/**`、各 `Cargo.toml`）是唯一事实来源。
+1. **源码**（`src/**/*.rs`、`nothings-orm/src/**`、`nothings-orm-sqlite/src/**`、`nothings-orm-mysql/src/**`、各 `Cargo.toml`）是唯一事实来源。
 2. `open-api/public-api.json` 由脚本从源码提取，带文件路径与行号，可用来快速定位；**不要手工编辑**，改完源码重跑脚本。
 3. `spec/*.md` 与 `src/**/README.md` 是人工解释层，负责语义、陷阱、替代方案。
 4. 三者冲突时，以源码为准，并立即修正文档。
@@ -52,6 +55,7 @@ python3 docs/ai/tools/gen_api_index.py --check   # JSON 与源码不一致时返
 cargo test                                       # 根 crate：299 单测 + 21 doctest（1 ignored）
 cargo test --manifest-path nothings-orm/Cargo.toml
 cargo test --manifest-path nothings-orm-sqlite/Cargo.toml
+cargo test --manifest-path nothings-orm-mysql/Cargo.toml   # 需 NOTHINGS_MYSQL_DSN，强制真库
 ```
 
 `gen_api_index.py` 只依赖 Python 标准库。

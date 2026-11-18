@@ -15,6 +15,7 @@
 | 过程宏子 crate | `nothings-macros/`（`proc-macro = true`，提供 `#[derive(Nothings)]` 与 `#[derive(Entity)]`） |
 | ORM 核心 crate | `nothings-orm/`（零 DB 依赖，对标 gorm.io/gorm） |
 | SQLite 驱动 crate | `nothings-orm-sqlite/`（rusqlite bundled，对标 gorm.io/driver/*） |
+| MySQL 驱动 crate | `nothings-orm-mysql/`（同步 `mysql` crate，`minimal-rust` 纯 Rust；`connect_with_tz` 提供双时区自动转换） |
 
 ## 2. 动手前必须知道的三件事
 
@@ -33,6 +34,7 @@
 cargo test                                      # 单元测试 + 文档测试，改代码后必跑
 cargo test --manifest-path nothings-orm/Cargo.toml
 cargo test --manifest-path nothings-orm-sqlite/Cargo.toml
+cargo test --manifest-path nothings-orm-mysql/Cargo.toml   # 需 NOTHINGS_MYSQL_DSN，强制真库
 cargo test --manifest-path nothings-macros/Cargo.toml
 cargo doc --no-deps                             # 公开 API 文档
 cargo clippy --all-targets                      # 存量告警较多，只要求「新增代码 0 告警」
@@ -62,14 +64,15 @@ python3 docs/ai/tools/gen_api_index.py --check   # 漂移自检，返回 0 才�
 | Singletons | `nothings::impl_singleton!` | **外部 crate 不可用** | `src/singletons/README.md` |
 | Coroutines | `coroutines` | 空占位（`app.rs` 为 0 字节） | 无 |
 
-另有两个独立 crate（无 workspace，需 `--manifest-path` 单独构建）：
+另有三个独立 crate（无 workspace，需 `--manifest-path` 单独构建）：
 
 | crate | 入口 | 说明 | 文档 |
 | --- | --- | --- | --- |
 | nothings-orm | `nothings_orm::{Entity, Schema, Driver, Repository}` | ORM 核心，零 DB 依赖 | `nothings-orm/README.md` |
 | nothings-orm-sqlite | `nothings_orm_sqlite::SqliteDriver` | SQLite 驱动（rusqlite bundled） | `nothings-orm-sqlite/README.md` |
+| nothings-orm-mysql | `nothings_orm_mysql::MysqlDriver` | MySQL 驱动（同步 mysql crate；测试强制真库） | `nothings-orm-mysql/README.md` |
 
-ORM 设计：`docs/ai/spec/50-orm-design.md`。派生宏生成的 API 不进 JSON 契约（生成器不展开过程宏），查签名看 crate README。
+ORM 设计：`docs/ai/spec/50-orm-design.md`；MySQL 驱动设计：`docs/ai/spec/51-mysql-driver-design.md`。派生宏生成的 API 不进 JSON 契约（生成器不展开过程宏），查签名看 crate README。
 
 ## 5. 代码约定（不要自创风格）
 
@@ -110,6 +113,7 @@ ORM 设计：`docs/ai/spec/50-orm-design.md`。派生宏生成的 API 不进 JSO
 | `docs/ai/spec/30-known-issues.md` | 失效 API 与安全边界（禁用清单） |
 | `docs/ai/spec/40-development-workflow.md` | 新增模块 / 改 API / 发布的操作流程 |
 | `docs/ai/spec/50-orm-design.md` | ORM 设计（GORM 式核心 + 独立驱动）、Phase 2 路线图 |
-| `docs/ai/open-api/public-api.json` | 机器可读的公开 API 清单（脚本生成，含 3 个 crate） |
+| `docs/ai/spec/51-mysql-driver-design.md` | MySQL 驱动设计（依赖、映射、已知边界、实现记录） |
+| `docs/ai/open-api/public-api.json` | 机器可读的公开 API 清单（脚本生成，含 4 个 crate） |
 | `docs/ai/open-api/README.md` | 契约字段说明与校验方法 |
 | `docs/superpowers/specs/` | 已有的历史设计 spec（secrets/AES 设计，含实现记录） |

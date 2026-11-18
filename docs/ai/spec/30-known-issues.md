@@ -1,8 +1,10 @@
 # 30 — 已知问题、禁用清单与安全边界
 
-状态：2026-11-17 基线，全部条目**未修复**。修掉任何一条时，必须同步更新本文件、根 `README.md` 的已知问题表、对应模块 README，以及 `open-api/public-api.json` 中的 `status` 标注（改 `tools/gen_api_index.py` 的 `ANNOTATIONS` 后重生成）。
+状态：2026-11-18 基线（新增 `MYSQL1`-`MYSQL6`），全部条目**未修复**。修掉任何一条时，必须同步更新本文件、根 `README.md` 的已知问题表、对应模块 README，以及 `open-api/public-api.json` 中的 `status` 标注（改 `tools/gen_api_index.py` 的 `ANNOTATIONS` 后重生成）。
 
 编号 B19-B22、C2-C4、C11-C12 随 wasm 支持移除而作废，保留编号空洞避免其它文档引用失效。
+
+**编号说明**：ORM1-ORM7 是本文的编号体系；`tools/gen_api_index.py` 的 `ANNOTATIONS` 里另有一套 ORM1-ORM5，两者语义已错位、互不对齐，本次不重排旧编号。MySQL 驱动新增条目统一使用独立的 `MYSQL*` 前缀，不占用任何 `ORM*` 编号。
 
 ## 1. A 类：功能失效（禁止依赖）
 
@@ -47,6 +49,10 @@ A6 的修复只需把 `src/singletons/app.rs:1` 的 `pub(crate)` 改成 `pub`，
 | ORM3 | `Entity` 名字冲突 | crate 根 `nothings_orm::Entity` 是派生宏，`nothings_orm::entity::Entity` 是 trait。调用 `from_row` / `pk_value` / `column_value` 需 `use nothings_orm::entity::Entity as EntityTrait` |
 | ORM4 | `SqliteDriver::execute_batch` | 直接执行原始 SQL，不参数化；仅供 DDL/测试，禁止传用户输入 |
 | ORM5 | 派生宏生成 API 不进 JSON | `public-api.json` 只扫源码文本，不展开过程宏；`Schema` / `Entity` 的生成方法需查 crate README |
+| MYSQL1 | `nothings-orm-mysql` 保留字列名 | core 裸拼接标识符、不加反引号，`E::TABLE` / `E::COLUMNS` 不得使用 MySQL 保留字（`order` / `key` / `group` / `desc` / `rank` …），否则 1064；DDL 列名与 `#[entity(column = ...)]` 必须字面一致（宏按列名大小写敏感精确匹配） |
+| MYSQL2 | `QueryBuilder::offset()` 单独调用 | 会生成 `SELECT ... OFFSET n`，MySQL 报 1064（SQLite 允许）。必须搭配 `limit()`；`one()` 自带 `limit(1)`，`get` / `find_one` 不受影响 |
+| MYSQL3 | `MysqlDriver::query` 的列名/别名 | 必须原样保留 `COUNT(*) AS __count`，且 `COUNT(*)` 映射为 `Value::I64`；core 的 `count()` 精确匹配列名 `__count`，`to_i64()` 不接受其它变体 |
+| MYSQL4 | MySQL 类型降级 | `Value` 只有六种变体：DATETIME / DATE / TIME / DECIMAL / JSON → `Text`（无类型保真）；`Bool` 写 TINYINT 0/1、读回 `I64`；`BIGINT UNSIGNED > i64::MAX` → `InvalidData`；Text/Blob 靠列元数据判定，不靠 UTF-8 试探 |
 
 ## 3. C 类：安全边界（写代码前必须评估）
 
@@ -59,8 +65,11 @@ A6 的修复只需把 `src/singletons/app.rs:1` 的 `pub(crate)` 改成 `pub`，
 | C8 | **口令直接 SHA256 当密钥** | SHA256 太快，不抗 GPU 暴力破解；面向用户口令要先经 bcrypt / Argon2 拉伸 |
 | C9 | **MD5 用于安全场景** | 存在碰撞攻击，只用于非安全的数据完整性校验 |
 | C10 | **bcrypt cost 热路径** | cost 每 +1 耗时翻倍；默认 12，高并发场景要限流 |
-| ORM6 | **SQL 注入** | 所有值必须走 `?` 参数化；列名/表名不可参数化，必须在 `E::COLUMNS` 白名单内。`execute_batch` 绝不接用户输入 |
+| ORM6 | **SQL 注入** | 所有值必须走 `?` 参数化；列名/表名不可参数化，必须在 `E::COLUMNS` 白名单内。`execute_batch` / `execute_ddl` 绝不接用户输入 |
 | ORM7 | **SQLite 并发** | 一个 `SqliteDriver` 持一条连接，不是 `Sync`；并发场景每线程一个实例。连接池在 YAGNI 清单 |
+| MYSQL5 | **`MysqlDriver::execute_ddl` 原始 SQL** | 不参数化、不校验语句条数。实测 `mysql 28.0.4` 的 `query_drop` 允许分号拼接多语句，绝不接用户输入，只用于固定字面量 DDL；DDL 会隐式提交，事务内只做 DML |
+| MYSQL6 | **MySQL 连接与测试** | 一个 `MysqlDriver` 持一条连接，无连接池、非 `Sync`；`query` 全量物化，大结果集内存线性增长。集成测试强制 `NOTHINGS_MYSQL_DSN`，缺变量直接失败，账号需 `CREATE/DROP DATABASE` 权限 |
+| MYSQL7 | **时区自动转换的边界** | 自动转换只对 `Value::DateTime` 生效，`Value::Text` / `I64` 一律不转（避免误伤 DECIMAL/JSON/普通字符串）。`connect_with_tz` 用 `OptsBuilder::init` 下发 `SET time_zone`，但会话设置对 DATETIME 内部无效——由驱动层墙钟换算补偿，外部直写 DATETIME 的数据不保证正确。**所有 TIMESTAMP/DATETIME 列读回一律 `Value::DateTime`，`String` 字段会读到 `InvalidData`，须改用 `DateTime` 字段**。固定偏移无 DST，不支持命名时区自动夏令时；SQLite 驱动不支持自动转换（按墙钟原样写 TEXT） |
 
 ## 4. 使用规则
 

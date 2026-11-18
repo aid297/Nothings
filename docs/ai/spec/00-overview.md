@@ -1,6 +1,6 @@
 # 00 — 项目规格总览
 
-- 文档基线：2026-11-18（移除 wasm 后）
+- 文档基线：2026-11-18（新增 MySQL 驱动 crate 后）
 - 状态：现行实现的事实描述，不是设计方案
 - 事实来源：`Cargo.toml`、`src/lib.rs`、各 `src/**/mod.rs`
 
@@ -16,7 +16,8 @@
 | 过程宏子 crate | `nothings-macros` 0.0.3，`proc-macro = true`，路径依赖；提供 `Nothings` / `Entity` 派生宏 |
 | ORM 核心 crate | `nothings-orm` 0.0.1，独立 crate，零 DB 依赖（`crate-type = ["lib"]`） |
 | SQLite 驱动 crate | `nothings-orm-sqlite` 0.0.1，rusqlite 0.32 bundled（`crate-type = ["lib"]`） |
-| 构建入口 | 根目录 `Cargo.toml`；无 workspace、无 Makefile、无 CI、无 examples。三个 crate 各自构建，需 `--manifest-path` |
+| MySQL 驱动 crate | `nothings-orm-mysql` 0.0.1，mysql 28.0 `minimal-rust`（纯 Rust，无 C/TLS 依赖） |
+| 构建入口 | 根目录 `Cargo.toml`；无 workspace、无 Makefile、无 CI、无 examples。契约登记 4 个 crate（磁盘 5 个 Cargo.toml，宏 crate 不进契约），各自构建需 `--manifest-path` |
 
 ## 2. 单一消费面
 
@@ -25,8 +26,9 @@
 | `nothings` Rust API | `nothings::*` | 下游 Rust crate | `spec/10-rust-api.md` + `open-api/public-api.json` |
 | `nothings-orm` Rust API | `nothings_orm::*` | 需要 ORM 的下游 crate | `nothings-orm/README.md` + `spec/50-orm-design.md` |
 | `nothings-orm-sqlite` Rust API | `nothings_orm_sqlite::SqliteDriver` | 使用 SQLite 的下游 crate | `nothings-orm-sqlite/README.md` |
+| `nothings-orm-mysql` Rust API | `nothings_orm_mysql::MysqlDriver` | 使用 MySQL 的下游 crate | `nothings-orm-mysql/README.md` + `spec/51-mysql-driver-design.md` |
 
-三个 crate 独立发布、独立版本；根 crate 不依赖 ORM，下游按需引入。发布顺序：`nothings-macros` → `nothings-orm` → `nothings-orm-sqlite`。
+契约登记的 4 个 crate 独立发布、独立版本；根 crate 不依赖 ORM，下游按需引入。发布顺序：`nothings-macros` → `nothings-orm` → `nothings-orm-sqlite` → `nothings-orm-mysql` → 根 `nothings`。
 
 ## 3. 模块支持
 
@@ -51,7 +53,7 @@
 
 `nothings-macros` 自身依赖 `quote 1`、`syn 2`（full + parsing）、`proc-macro2 1`。
 
-`nothings-orm` 只依赖 `nothings-macros 0.0.3`（path），零 DB 依赖。`nothings-orm-sqlite` 依赖 `nothings-orm 0.0.1`（path）+ `rusqlite 0.32`（`default-features = false`，features `bundled`；bundled 需要构建机有 C 编译器）。
+`nothings-orm` 只依赖 `nothings-macros 0.0.3`（path），零 DB 依赖。`nothings-orm-sqlite` 依赖 `nothings-orm 0.0.1`（path）+ `rusqlite 0.32`（`default-features = false`，features `bundled`；bundled 需要构建机有 C 编译器）。`nothings-orm-mysql` 依赖 `nothings-orm 0.0.1`（path）+ `mysql 28.0`（`default-features = false`，features `minimal-rust`；实测 `mysql 28.0.4` + `mysql_common 0.37.3`，无 native-tls / openssl / zlib-sys / tokio）。
 
 ## 5. 模块树
 
@@ -82,6 +84,8 @@ nothings-orm/         Cargo.toml README.md tests/entity.rs
 └── src/              lib.rs value.rs row.rs schema.rs entity.rs driver.rs repository.rs query.rs
 nothings-orm-sqlite/  Cargo.toml README.md tests/{crud,file_db}.rs
 └── src/              lib.rs      # SqliteDriver + rusqlite(bundled)
+nothings-orm-mysql/   Cargo.toml README.md tests/{crud,connection,types}.rs tests/common/mod.rs
+└── src/              lib.rs      # MysqlDriver + mysql(minimal-rust)
 nothings-macros/      Cargo.toml src/{lib,entity}.rs
 ```
 
@@ -100,16 +104,16 @@ nothings-macros/      Cargo.toml src/{lib,entity}.rs
 | 格式 | 不跑 `cargo fmt`（仓库整体非 rustfmt 格式，会产生大量无关 diff） |
 | 测试 | 单测放同目录 `*_test.rs` / `test.rs`；文档示例写在 rustdoc |
 
-## 7. 验收基线（2026-11-18 移除 wasm 后实测）
+## 7. 验收基线（2026-11-18 新增 MySQL 驱动后实测）
 
 | 检查 | 结果 |
 | --- | --- |
 | 工具链 | `rustc 1.96.0` / `cargo 1.96.0`；目标平台 `aarch64-apple-darwin` |
 | `cargo test` | 299 个单元测试通过；文档测试 21 passed / 1 ignored |
-| 三个 crate 各自 `cargo test --manifest-path ...` | 根 299+21；nothings-orm 8；nothings-orm-sqlite 10（全部通过） |
+| 四个 crate 各自 `cargo test --manifest-path ...` | 根 299+21；nothings-orm 13（含 5 个时间类型单测）；nothings-orm-sqlite 10；nothings-orm-mysql 29（含 10 个时区集成测试，需 `NOTHINGS_MYSQL_DSN`，强制真库，实测 MySQL 8.0.46） |
 | `cargo doc --no-deps` | 无 secrets 相关告警（历史记录） |
 | `cargo clippy --all-targets` | 0 error（存量 `mut_from_ref` deny 已修复）；其它存量告警不处理，只要求新增代码 0 告警 |
-| `python3 docs/ai/tools/gen_api_index.py --check` | 契约与源码一致：456 个公开 item（根 376 + orm 70 + sqlite 10）、0 个 C-ABI 导出 |
+| `python3 docs/ai/tools/gen_api_index.py --check` | 契约与源码一致：**488** 个公开 item（根 376 + orm 92 + sqlite 10 + mysql 10）、0 个 C-ABI 导出；`generator_version = 3`、4 个源根 / 4 个 crate |
 
 ## 8. 版本与变更登记
 
@@ -121,6 +125,8 @@ nothings-macros/      Cargo.toml src/{lib,entity}.rs
 | 2026-11-18 | 彻底移除 wasm：删 `cdylib`、`wasm_exports`（13 个 C-ABI 导出）、wasm target 依赖，回归纯 Rust lib | 破坏性：移除 C-ABI 消费面；0.0.x 线不升版本 |
 | 2026-11-18 | 修正 `AnyMapTrait` 的 `every` / `clean` 声明签名，消除 2 个 `mut_from_ref` deny | trait 仍 unimplemented，无运行时行为变化；契约签名 2 处更新，item 数不变；0.0.x 线不升版本 |
 | 2026-11-18 | 新增 3 个独立 crate：`nothings-macros` 0.0.3（加 `Entity` 派生宏）、`nothings-orm` 0.0.1、`nothings-orm-sqlite` 0.0.1 | 根 crate 零 DB 依赖，仅宏依赖升版本；契约 376 → 456 item；不建 workspace、不加 features |
+| 2026-11-18 | 新增独立 crate `nothings-orm-mysql` 0.0.1（同步 `mysql` crate，纯 Rust），新增设计 spec `docs/ai/spec/51-mysql-driver-design.md` | ORM core / 宏 / SQLite 驱动 / 根 crate 零改动；契约 456 → 465 item、`generator_version` 2 → 3、源根 3 → 4；集成测试强制真实 MySQL |
+| 2026-11-18 | 双时区自动转换：`nothings-orm` 新增 `UtcOffset` / `DateTime` / `Value::DateTime`，`MysqlDriver::connect_with_tz` | **破坏性**：`Value` 加变体；TIMESTAMP/DATETIME 读回一律 `Value::DateTime`，`String` 字段须迁移。契约 465 → 488 item；新增 MYSQL7 边界；依赖仍零新增（不引 chrono/time） |
 
 ## 9. 明确不提供
 
@@ -129,4 +135,4 @@ nothings-macros/      Cargo.toml src/{lib,entity}.rs
 - AES-GCM 的 AAD、base64/hex 编解码、文件加解密、密钥内存擦除（`zeroize` 未启用）。
 - 标准 ZIP 归档（`Dir::zip` 是自定义 TLV + 压缩）。
 - SM4 / 非对称加密：`secrets::symmetric` 是预留的分类命名空间，尚未实现。
-- ORM 的 async、连接池、关联加载、Migration、软删除/时间戳钩子、MySQL/Postgres 驱动（见 `spec/50` Phase 2 路线图）。
+- ORM 的 async、连接池、关联加载、Migration、软删除/时间戳钩子、Postgres 驱动（MySQL 驱动已由 `nothings-orm-mysql` 提供，见 `spec/51`；Phase 2 路线见 `spec/50`）。

@@ -1,6 +1,6 @@
 # nothings
 
-> Rust 工具库 v0.0.9（edition 2024 / MSRV 1.89+ / MIT）。提供 AnySlice、AnyMap、LZ4/zlib/Zstd 压缩、AES 对称加密、Bcrypt/MD5/SHA256 摘要、文件目录操作、统一 HTTP 响应结构、时间字符串解析、声明式结构体校验、单例宏；另有独立 crate `nothings-orm`（ORM 核心）与 `nothings-orm-sqlite`（SQLite 驱动）。这是库 crate，不是 HTTP 服务，没有二进制和 CI 配置。
+> Rust 工具库 v0.0.9（edition 2024 / MSRV 1.89+ / MIT）。提供 AnySlice、AnyMap、LZ4/zlib/Zstd 压缩、AES 对称加密、Bcrypt/MD5/SHA256 摘要、文件目录操作、统一 HTTP 响应结构、时间字符串解析、声明式结构体校验、单例宏；另有独立 crate `nothings-orm`（ORM 核心）、`nothings-orm-sqlite`（SQLite 驱动）与 `nothings-orm-mysql`（MySQL 驱动）。这是库 crate，不是 HTTP 服务，没有二进制和 CI 配置。
 
 关键事实：所有模块无条件参与编译，无平台差异。存在一批「签名存在但实现失效」的公开方法，写代码前必须查已知问题清单。
 
@@ -8,6 +8,7 @@
 
 - [AGENTS.md](AGENTS.md): AI 编码约定、命令、模块地图、文档同步要求、禁用清单速查
 - [README.md](README.md): 人类可读的项目总览、安装、快速开始、已知问题表
+- [docs/orm-cookbook.md](docs/orm-cookbook.md): ORM 完整实战演示（实体/CRUD/查询/事务/两个驱动/自定义 Driver），示例实测可跑
 - [docs/ai/README.md](docs/ai/README.md): 面向 AI 的文档导航与维护约定
 
 ## 规格
@@ -17,16 +18,18 @@
 - [docs/ai/spec/30-known-issues.md](docs/ai/spec/30-known-issues.md): 失效 API、接口陷阱、安全边界（禁用清单）
 - [docs/ai/spec/40-development-workflow.md](docs/ai/spec/40-development-workflow.md): 新增模块 / 改 API / 发布的操作流程
 - [docs/ai/spec/50-orm-design.md](docs/ai/spec/50-orm-design.md): ORM 设计（GORM 式核心 + 独立驱动）、Phase 2 路线图
+- [docs/ai/spec/51-mysql-driver-design.md](docs/ai/spec/51-mysql-driver-design.md): MySQL 驱动设计（依赖、类型/错误映射、已知边界、实现记录）
 
 ## 机器可读契约
 
-- [docs/ai/open-api/public-api.json](docs/ai/open-api/public-api.json): 全量公开 item 清单（3 个 crate：签名、源码位置、状态标记）
+- [docs/ai/open-api/public-api.json](docs/ai/open-api/public-api.json): 全量公开 item 清单（4 个 crate：签名、源码位置、状态标记）
 - [docs/ai/open-api/README.md](docs/ai/open-api/README.md): 字段定义、生成与校验方法
 
 ## 独立 crate
 
 - [nothings-orm](nothings-orm/README.md): ORM 核心（Entity 派生宏、Schema、Driver、Repository、QueryBuilder）
 - [nothings-orm-sqlite](nothings-orm-sqlite/README.md): SQLite 驱动（rusqlite bundled）
+- [nothings-orm-mysql](nothings-orm-mysql/README.md): MySQL 驱动（同步 mysql crate、纯 Rust；测试强制真库）
 
 ## 模块文档
 

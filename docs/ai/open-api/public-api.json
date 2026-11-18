@@ -1,11 +1,12 @@
 {
   "spec": "nothings-public-api/v1",
   "generated_by": "docs/ai/tools/gen_api_index.py",
-  "generator_version": 2,
+  "generator_version": 3,
   "source_roots": [
     "src",
     "nothings-orm/src",
-    "nothings-orm-sqlite/src"
+    "nothings-orm-sqlite/src",
+    "nothings-orm-mysql/src"
   ],
   "crates": [
     {
@@ -21,6 +22,11 @@
     {
       "name": "nothings-orm-sqlite",
       "manifest": "nothings-orm-sqlite/Cargo.toml",
+      "version": "0.0.1"
+    },
+    {
+      "name": "nothings-orm-mysql",
+      "manifest": "nothings-orm-mysql/Cargo.toml",
       "version": "0.0.1"
     }
   ],
@@ -7307,6 +7313,329 @@
       "line": 27
     },
     {
+      "path": "nothings_orm::value::UtcOffset",
+      "module": "nothings_orm::value",
+      "kind": "struct",
+      "name": "UtcOffset",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub struct UtcOffset",
+      "cfg": null,
+      "attributes": [
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
+      ],
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/value.rs",
+      "line": 13
+    },
+    {
+      "path": "nothings_orm::value::UTC",
+      "module": "nothings_orm::value",
+      "kind": "const",
+      "name": "UTC",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub const UTC: Self = Self { total_minutes: 0 };",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/value.rs",
+      "line": 18
+    },
+    {
+      "path": "nothings_orm::value::UtcOffset::parse",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "parse",
+      "owner": "UtcOffset",
+      "visibility": "pub",
+      "signature": "pub fn parse(text: &str) -> Result<Self, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 21
+    },
+    {
+      "path": "nothings_orm::value::UtcOffset::total_minutes",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "total_minutes",
+      "owner": "UtcOffset",
+      "visibility": "pub",
+      "signature": "pub fn total_minutes(&self) -> i32",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 48
+    },
+    {
+      "path": "nothings_orm::value::UtcOffset::diff_minutes",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "diff_minutes",
+      "owner": "UtcOffset",
+      "visibility": "pub",
+      "signature": "pub fn diff_minutes(&self, other: &Self) -> i32",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 53
+    },
+    {
+      "path": "nothings_orm::value::UtcOffset::fmt",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "fmt",
+      "owner": "UtcOffset",
+      "visibility": "inherited (trait method)",
+      "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 59
+    },
+    {
+      "path": "nothings_orm::value::DateTime",
+      "module": "nothings_orm::value",
+      "kind": "struct",
+      "name": "DateTime",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub struct DateTime",
+      "cfg": null,
+      "attributes": [
+        "#[derive(Clone, Debug, PartialEq, Eq)]"
+      ],
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/value.rs",
+      "line": 70
+    },
+    {
+      "path": "nothings_orm::value::DateTime::new",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "new",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn new(year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8, micros: u32) -> Result<Self, Error>",
+      "cfg": null,
+      "attributes": [
+        "#[allow(clippy::too_many_arguments)]"
+      ],
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 83
+    },
+    {
+      "path": "nothings_orm::value::DateTime::year",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "year",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn year(&self) -> i32",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 108
+    },
+    {
+      "path": "nothings_orm::value::DateTime::month",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "month",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn month(&self) -> u8",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 109
+    },
+    {
+      "path": "nothings_orm::value::DateTime::day",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "day",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn day(&self) -> u8",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 110
+    },
+    {
+      "path": "nothings_orm::value::DateTime::hour",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "hour",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn hour(&self) -> u8",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 111
+    },
+    {
+      "path": "nothings_orm::value::DateTime::minute",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "minute",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn minute(&self) -> u8",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 112
+    },
+    {
+      "path": "nothings_orm::value::DateTime::second",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "second",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn second(&self) -> u8",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 113
+    },
+    {
+      "path": "nothings_orm::value::DateTime::micros",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "micros",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn micros(&self) -> u32",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 114
+    },
+    {
+      "path": "nothings_orm::value::DateTime::to_unix_secs",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "to_unix_secs",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn to_unix_secs(&self, offset: &UtcOffset) -> i64",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 117
+    },
+    {
+      "path": "nothings_orm::value::DateTime::from_unix_secs",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "from_unix_secs",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn from_unix_secs(secs: i64, offset: &UtcOffset) -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 127
+    },
+    {
+      "path": "nothings_orm::value::DateTime::shifted_minutes",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "shifted_minutes",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn shifted_minutes(&self, delta_minutes: i32) -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 144
+    },
+    {
+      "path": "nothings_orm::value::DateTime::parse",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "parse",
+      "owner": "DateTime",
+      "visibility": "pub",
+      "signature": "pub fn parse(text: &str) -> Result<Self, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 152
+    },
+    {
+      "path": "nothings_orm::value::DateTime::fmt",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "fmt",
+      "owner": "DateTime",
+      "visibility": "inherited (trait method)",
+      "signature": "fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 224
+    },
+    {
       "path": "nothings_orm::value::Value",
       "module": "nothings_orm::value",
       "kind": "enum",
@@ -7321,7 +7650,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 11
+      "line": 237
     },
     {
       "path": "nothings_orm::value::Value::to_value",
@@ -7337,7 +7666,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 21
+      "line": 249
     },
     {
       "path": "nothings_orm::value::Value::fmt",
@@ -7353,7 +7682,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 27
+      "line": 255
     },
     {
       "path": "nothings_orm::value::SqlType",
@@ -7370,7 +7699,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 41
+      "line": 270
     },
     {
       "path": "nothings_orm::value::ToValue",
@@ -7385,7 +7714,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 49
+      "line": 278
     },
     {
       "path": "nothings_orm::value::ToValue::to_value",
@@ -7401,7 +7730,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 50
+      "line": 279
     },
     {
       "path": "nothings_orm::value::FromValue",
@@ -7416,7 +7745,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 54
+      "line": 283
     },
     {
       "path": "nothings_orm::value::FromValue::from_value",
@@ -7432,7 +7761,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 55
+      "line": 284
     },
     {
       "path": "nothings_orm::value::HasSqlType",
@@ -7447,7 +7776,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 59
+      "line": 288
     },
     {
       "path": "nothings_orm::value::impl_integer!",
@@ -7461,7 +7790,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 70
+      "line": 299
     },
     {
       "path": "nothings_orm::value::impl_float!",
@@ -7475,7 +7804,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 100
+      "line": 329
     },
     {
       "path": "nothings_orm::value::bool::to_value",
@@ -7491,7 +7820,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 130
+      "line": 359
     },
     {
       "path": "nothings_orm::value::bool::from_value",
@@ -7507,7 +7836,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 135
+      "line": 364
     },
     {
       "path": "nothings_orm::value::String::to_value",
@@ -7523,7 +7852,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 154
+      "line": 383
     },
     {
       "path": "nothings_orm::value::String::from_value",
@@ -7539,7 +7868,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 159
+      "line": 388
     },
     {
       "path": "nothings_orm::value::Vec::to_value",
@@ -7555,7 +7884,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 171
+      "line": 400
     },
     {
       "path": "nothings_orm::value::Vec::from_value",
@@ -7571,7 +7900,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 176
+      "line": 405
     },
     {
       "path": "nothings_orm::value::Option::to_value",
@@ -7587,7 +7916,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 188
+      "line": 417
     },
     {
       "path": "nothings_orm::value::Option::from_value",
@@ -7603,7 +7932,39 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 196
+      "line": 425
+    },
+    {
+      "path": "nothings_orm::value::DateTime::to_value",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "to_value",
+      "owner": "DateTime",
+      "visibility": "inherited (trait method)",
+      "signature": "fn to_value(&self) -> Value",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 437
+    },
+    {
+      "path": "nothings_orm::value::DateTime::from_value",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "from_value",
+      "owner": "DateTime",
+      "visibility": "inherited (trait method)",
+      "signature": "fn from_value(value: &Value) -> Result<Self, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 443
     },
     {
       "path": "nothings_orm_sqlite::SqliteDriver",
@@ -7682,7 +8043,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm-sqlite/src/lib.rs",
-      "line": 95
+      "line": 97
     },
     {
       "path": "nothings_orm_sqlite::SqliteDriver::query",
@@ -7698,7 +8059,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm-sqlite/src/lib.rs",
-      "line": 101
+      "line": 103
     },
     {
       "path": "nothings_orm_sqlite::SqliteDriver::last_insert_id",
@@ -7714,7 +8075,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm-sqlite/src/lib.rs",
-      "line": 122
+      "line": 124
     },
     {
       "path": "nothings_orm_sqlite::SqliteDriver::begin",
@@ -7730,7 +8091,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm-sqlite/src/lib.rs",
-      "line": 126
+      "line": 128
     },
     {
       "path": "nothings_orm_sqlite::SqliteDriver::commit",
@@ -7746,7 +8107,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm-sqlite/src/lib.rs",
-      "line": 130
+      "line": 132
     },
     {
       "path": "nothings_orm_sqlite::SqliteDriver::rollback",
@@ -7762,28 +8123,187 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm-sqlite/src/lib.rs",
-      "line": 134
+      "line": 136
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver",
+      "module": "nothings_orm_mysql",
+      "kind": "struct",
+      "name": "MysqlDriver",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub struct MysqlDriver",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 18
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver::connect",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "connect",
+      "owner": "MysqlDriver",
+      "visibility": "pub",
+      "signature": "pub fn connect(url: &str) -> Result<Self, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 26
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver::connect_with_tz",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "connect_with_tz",
+      "owner": "MysqlDriver",
+      "visibility": "pub",
+      "signature": "pub fn connect_with_tz(url: &str, orm_tz: UtcOffset, db_tz: UtcOffset) -> Result<Self, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "MYSQL7: 双时区自动转换仅对 Value::DateTime 生效；TIMESTAMP/DATETIME 读回一律 Value::DateTime；固定偏移无 DST，SQLite 不支持",
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 41
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver::execute_ddl",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "execute_ddl",
+      "owner": "MysqlDriver",
+      "visibility": "pub",
+      "signature": "pub fn execute_ddl(&mut self, sql: &str) -> Result<(), Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "MYSQL5: 单条原始 DDL，不参数化；实测客户端允许多语句，绝不接用户输入",
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 75
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver::execute",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "execute",
+      "owner": "MysqlDriver",
+      "visibility": "inherited (trait method)",
+      "signature": "fn execute(&mut self, sql: &str, values: &[Value]) -> Result<usize, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 257
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver::query",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "query",
+      "owner": "MysqlDriver",
+      "visibility": "inherited (trait method)",
+      "signature": "fn query(&mut self, sql: &str, values: &[Value]) -> Result<Vec<OwnedRow>, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 268
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver::last_insert_id",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "last_insert_id",
+      "owner": "MysqlDriver",
+      "visibility": "inherited (trait method)",
+      "signature": "fn last_insert_id(&self) -> Result<i64, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 290
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver::begin",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "begin",
+      "owner": "MysqlDriver",
+      "visibility": "inherited (trait method)",
+      "signature": "fn begin(&mut self) -> Result<(), Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 298
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver::commit",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "commit",
+      "owner": "MysqlDriver",
+      "visibility": "inherited (trait method)",
+      "signature": "fn commit(&mut self) -> Result<(), Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 302
+    },
+    {
+      "path": "nothings_orm_mysql::MysqlDriver::rollback",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "rollback",
+      "owner": "MysqlDriver",
+      "visibility": "inherited (trait method)",
+      "signature": "fn rollback(&mut self) -> Result<(), Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 306
     }
   ],
   "exports": [],
   "counts": {
     "modules": 56,
-    "items": 456,
+    "items": 488,
     "by_kind": {
-      "const": 17,
+      "const": 18,
       "enum": 5,
       "field": 34,
-      "fn": 354,
+      "fn": 382,
       "macro": 3,
-      "struct": 23,
+      "struct": 26,
       "trait": 15,
       "type": 1,
       "use": 4
     },
     "by_status": {
       "broken": 9,
-      "limited": 24,
-      "ok": 344,
+      "limited": 26,
+      "ok": 374,
       "unimplemented": 79
     },
     "exports": 0
