@@ -1,6 +1,6 @@
 # nothings
 
-一个实用的 Rust 工具库。核心是 `AnySlice<T>`（增强版 `Vec<T>`）与 `AnyMap<K, V>`（有序键值对映射），另外提供 LZ4 / zlib / Zstandard 压缩、AES 对称加密、Bcrypt / MD5 / SHA256 摘要、文件与目录操作、统一 HTTP 响应结构、时间字符串解析、声明式结构体校验、单例宏，以及面向 Go 宿主的 Wasm C-ABI 导出层。
+一个实用的 Rust 工具库。核心是 `AnySlice<T>`（增强版 `Vec<T>`）与 `AnyMap<K, V>`（有序键值对映射），另外提供 LZ4 / zlib / Zstandard 压缩、AES 对称加密、Bcrypt / MD5 / SHA256 摘要、文件与目录操作、统一 HTTP 响应结构、时间字符串解析、声明式结构体校验、单例宏。另有独立的 ORM crate：`nothings-orm`（核心）与 `nothings-orm-sqlite`（SQLite 驱动）。
 
 ## 安装
 
@@ -10,7 +10,7 @@ nothings = "0.0.9"
 ```
 
 - MSRV：edition 2024（需 Rust 1.89+，由 `aes` / `aes-gcm` 依赖决定）
-- 平台：原生平台支持全部模块；`wasm32-unknown-unknown` / `wasm32-wasip1` 下 `filesystem` 与 `compressions::zstd4` 不参与编译（zstd 为 C 绑定）。`secrets` 为纯 Rust 实现，两种 wasm 目标下均可用
+- 平台：所有模块无条件参与编译，无平台差异（zstd 为 C 绑定，需原生工具链）
 
 ## 模块目录
 
@@ -21,18 +21,32 @@ nothings = "0.0.9"
 | **AnySlice** | `nothings::any_slices::app` | 增强版 `Vec<T>`，45 个方法：链式增删改、集合运算、`pluck`、分块等 | [README](src/any_slices/README.md) |
 | **AnyMap** | `nothings::any_maps::app` | 有序键值对映射，基于平行 `AnySlice` 实现，34 个方法 | [README](src/any_maps/README.md) |
 | **Compressions** | `nothings::compressions` | 压缩模块总览：`Compressor` trait 与 `with_lz4()` / `with_zlib()` / `with_zstd()` 等 6 个工厂函数，用于把压缩算法作为参数传递 | [README](src/compressions/README.md) |
-| **Lz4** | `nothings::compressions::lz4::app` | LZ4 frame 压缩/解压，纯 Rust 实现，可用于 wasm | [README](src/compressions/lz4/README.md) |
+| **Lz4** | `nothings::compressions::lz4::app` | LZ4 frame 压缩/解压，纯 Rust 实现 | [README](src/compressions/lz4/README.md) |
 | **Zlib** | `nothings::compressions::zlib::app` | zlib 压缩/解压，0-9 级压缩级别 | [README](src/compressions/zlib/README.md) |
-| **Zstd** | `nothings::compressions::zstd4::app` | Zstandard 压缩/解压，1-21 级压缩级别（非 wasm） | [README](src/compressions/zstd4/README.md) |
+| **Zstd** | `nothings::compressions::zstd4::app` | Zstandard 压缩/解压，1-21 级压缩级别 | [README](src/compressions/zstd4/README.md) |
 | **Digests** | `nothings::digests` | `Bcrypt` 密码哈希与验证、`Md5Hash`、`Sha256Hash` | [README](src/digests/README.md) |
 | **Secrets** | `nothings::secrets` | 加密模块总览：`Symmetric` trait 与 `with_aes_gcm()` / `with_aes_cbc()` / `with_aes_ctr()` / `with_aes_ecb()` 4 个工厂函数，用于把加密算法作为参数传递 | [README](src/secrets/README.md) |
-| **Aes** | `nothings::secrets::symmetric::aes::app` | AES-128/192/256 加密解密，GCM / CBC / CTR / ECB 四种模式，纯 Rust 实现，可用于 wasm | [README](src/secrets/symmetric/aes/README.md) |
-| **Filesystem** | `nothings::filesystem` | `File` / `Dir`：读写、移动、删除、权限设置、整目录打包/还原（非 wasm） | [README](src/filesystem/README.md) |
+| **Aes** | `nothings::secrets::symmetric::aes::app` | AES-128/192/256 加密解密，GCM / CBC / CTR / ECB 四种模式，纯 Rust 实现 | [README](src/secrets/symmetric/aes/README.md) |
+| **Filesystem** | `nothings::filesystem` | `File` / `Dir`：读写、移动、删除、权限设置、整目录打包/还原 | [README](src/filesystem/README.md) |
 | **HttpResponse** | `nothings::http_responses` | 可序列化的统一响应结构 `HttpResponse<T>`（`ok` / `bad_request` 等 7 个构造器） | [README](src/http_responses/README.md) |
 | **Texts / Timer** | `nothings::texts::timer` | 将 `"1h30m"`、`"2w3d"` 等字符串解析为 `std::time::Duration` | [README](src/texts/README.md) |
 | **Validations** | `nothings::validations` | 基于 `#[derive(Nothings)]` 的声明式结构体字段校验 | [README](src/validations/README.md) |
 | **Singletons** | `nothings::impl_singleton!` | 通过宏为任意类型生成 `instance()` / `default()` / `with(...)` 单例接口 ⚠️ 当前外部 crate 不可用 | [README](src/singletons/README.md) |
-| **Wasm 导出层** | `nothings::wasm_exports` | 13 个 `extern "C"` 导出函数，供 Go（wazero / wasmtime-go）等宿主按「指针 + 长度」调用 | [README](src/wasm_exports/README.md) |
+
+### 独立 crate（不在 `nothings` 内，按需引入）
+
+```toml
+[dependencies]
+nothings-orm = "0.0.1"          # ORM 核心，零 DB 依赖
+nothings-orm-sqlite = "0.0.1"   # SQLite 驱动（rusqlite bundled）
+```
+
+| crate | 说明 | 文档 |
+|-------|------|------|
+| **nothings-orm** | `#[derive(Entity)]` 派生宏、静态 schema、`Driver` / `Repository` / `QueryBuilder`、CRUD 与事务 | [README](nothings-orm/README.md) |
+| **nothings-orm-sqlite** | `SqliteDriver`，rusqlite bundled 实现，仅 native | [README](nothings-orm-sqlite/README.md) |
+
+设计文档：[docs/ai/spec/50-orm-design.md](docs/ai/spec/50-orm-design.md)。根 crate 零 DB 依赖，wasm 移除后所有 crate 都是纯 native。
 
 ### 暂无独立文档的模块
 
@@ -115,12 +129,9 @@ Lz4::decompress_file("output.lz4", "output.txt").unwrap();
 ```
 
 ```rust
-#[cfg(not(target_arch = "wasm32"))]
-{
-    use nothings::compressions::zstd4::app::Zstd;
-    let compressed = Zstd::compress_with_level(b"hello", 19).unwrap();
-    assert_eq!(Zstd::decompress(&compressed).unwrap(), b"hello");
-}
+use nothings::compressions::zstd4::app::Zstd;
+let compressed = Zstd::compress_with_level(b"hello", 19).unwrap();
+assert_eq!(Zstd::decompress(&compressed).unwrap(), b"hello");
 ```
 
 也可通过统一的 `Compressor` trait 把算法作为参数传递：
@@ -195,26 +206,23 @@ CBC / CTR / ECB 三种模式不校验密文完整性，仅在与既有系统互�
 ### Filesystem — 文件与目录
 
 ```rust
-#[cfg(not(target_arch = "wasm32"))]
-{
-    use nothings::filesystem::file::File;
-    use nothings::filesystem::dir::Dir;
+use nothings::filesystem::file::File;
+use nothings::filesystem::dir::Dir;
 
-    // File：写入是覆盖，不是追加
-    let mut f = File::new("note.txt");
-    f.write(b"hello").unwrap();
-    assert_eq!(f.read().unwrap(), b"hello");
-    assert_eq!(f.ext, "txt");
+// File：写入是覆盖，不是追加
+let mut f = File::new("note.txt");
+f.write(b"hello").unwrap();
+assert_eq!(f.read().unwrap(), b"hello");
+assert_eq!(f.ext, "txt");
 
-    // mv 不返回 Result，失败信息写进公开的 err 字段，必须手动检查
-    let mut f = File::new("note.txt");
-    f.mv("moved.txt");
-    assert!(f.err.is_none());
+// mv 不返回 Result，失败信息写进公开的 err 字段，必须手动检查
+let mut f = File::new("note.txt");
+f.mv("moved.txt");
+assert!(f.err.is_none());
 
-    // Dir::new 会递归扫描整棵子树，大目录慎用
-    let d = Dir::new_or_create("/tmp/demo").unwrap();
-    println!("{} 个条目，空={}", d.count(), d.is_empty());
-}
+// Dir::new 会递归扫描整棵子树，大目录慎用
+let d = Dir::new_or_create("/tmp/demo").unwrap();
+println!("{} 个条目，空={}", d.count(), d.is_empty());
 ```
 
 ⚠️ `Dir::zip` 产出的**不是标准 ZIP 文件**（自定义 TLV 归档 + 压缩，magic 不是 `PK\x03\x04`），只能用 `Dir::unzip` 配同一算法还原；空目录不会被保存。`Dir::join` 当前是空操作。详见 [src/filesystem/README.md](src/filesystem/README.md)。
@@ -273,24 +281,6 @@ match checker.check() {
 
 规则用 `(...)` 包裹并连续书写，属性名为 `rule` / `name` / `kind` / `nested`；完整规则与操作符列表见 [src/validations/README.md](src/validations/README.md)。
 
-### Wasm 导出层 — 供 Go 等宿主调用
-
-```bash
-cargo build --target wasm32-wasip1 --release     # 约 190 KB
-```
-
-13 个 `extern "C"` 导出函数分三组：
-
-| 分组 | 导出函数 |
-|------|----------|
-| 内存管理 | `nothings_alloc`、`nothings_free` |
-| 摘要与密码 | `nothings_md5`、`nothings_sha256`、`nothings_bcrypt_hash`、`nothings_bcrypt_verify` |
-| 保序映射 | `nothings_anymap_new` / `insert` / `get` / `remove` / `to_json` / `len` / `drop` |
-
-变长返回值（bcrypt 哈希、JSON）是「**前 4 字节小端长度前缀 + 数据**」的堆指针，宿主读完后必须按 `nothings_free(ptr, 4 + 长度)` 释放。定长返回值（MD5 的 32 字节、SHA256 的 64 字节）由宿主预分配缓冲区，**Rust 侧不校验长度**。
-
-导出层在原生平台同样参与编译，可直接 `cargo test wasm_exports` 验证。完整 ABI 约定、返回码表与 Go(wazero) 示例见 [src/wasm_exports/README.md](src/wasm_exports/README.md)。
-
 ### Singletons — 当前不可用
 
 `impl_singleton!` 宏依赖 `pub(crate)` 的 `Singleton` trait，在外部 crate 调用会直接编译失败（`E0603: trait 'Singleton' is private`），且**整个宏失效**，连 `instance()` / `default()` 也不会生成。模块内测试能过是因为同 crate。替代写法见 [src/singletons/README.md](src/singletons/README.md)。
@@ -314,8 +304,6 @@ cargo build --target wasm32-wasip1 --release     # 约 190 KB
 | HttpResponse | 状态码无法自定义，`errors` 字段无实际作用 | 初始化入口 `empty()` 是私有的，只能改 `pub` 字段绕过；`std::fmt::Error` 不携带信息且被 `#[serde(skip)]` |
 | HttpResponse | 没有 `Debug` / `Clone` / `PartialEq` / `Deserialize` | 不能 `{:?}` 打印、不能 `assert_eq!`、不能反序列化；只适合做服务端出参 |
 | Singletons | `impl_singleton!` 在外部 crate 编译失败（`E0603: trait 'Singleton' is private`） | **整个宏失效**，`instance()` / `default()` 也不会生成；按模块文档手写 `OnceLock<Mutex<T>>` |
-| Wasm 导出层 | `nothings_md5` / `nothings_sha256` 的 `out` 缓冲区无长度校验 | 宿主给小了会静默越界写坏线性内存；MD5 必须 ≥32 字节、SHA256 必须 ≥64 字节 |
-| Wasm 导出层 | 导出函数无 panic 屏障 | 内部 panic（如注册表 `Mutex` 中毒）会直接 wasm trap，整个实例失效 |
 
 ## License
 

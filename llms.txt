@@ -1,0 +1,48 @@
+# nothings
+
+> Rust 工具库 v0.0.9（edition 2024 / MSRV 1.89+ / MIT）。提供 AnySlice、AnyMap、LZ4/zlib/Zstd 压缩、AES 对称加密、Bcrypt/MD5/SHA256 摘要、文件目录操作、统一 HTTP 响应结构、时间字符串解析、声明式结构体校验、单例宏；另有独立 crate `nothings-orm`（ORM 核心）与 `nothings-orm-sqlite`（SQLite 驱动）。这是库 crate，不是 HTTP 服务，没有二进制和 CI 配置。
+
+关键事实：所有模块无条件参与编译，无平台差异。存在一批「签名存在但实现失效」的公开方法，写代码前必须查已知问题清单。
+
+## 必读
+
+- [AGENTS.md](AGENTS.md): AI 编码约定、命令、模块地图、文档同步要求、禁用清单速查
+- [README.md](README.md): 人类可读的项目总览、安装、快速开始、已知问题表
+- [docs/ai/README.md](docs/ai/README.md): 面向 AI 的文档导航与维护约定
+
+## 规格
+
+- [docs/ai/spec/00-overview.md](docs/ai/spec/00-overview.md): 版本、平台矩阵、依赖、模块树、全局约定、验收基线
+- [docs/ai/spec/10-rust-api.md](docs/ai/spec/10-rust-api.md): Rust 公开 API 契约与签名速查
+- [docs/ai/spec/30-known-issues.md](docs/ai/spec/30-known-issues.md): 失效 API、接口陷阱、安全边界（禁用清单）
+- [docs/ai/spec/40-development-workflow.md](docs/ai/spec/40-development-workflow.md): 新增模块 / 改 API / 发布的操作流程
+- [docs/ai/spec/50-orm-design.md](docs/ai/spec/50-orm-design.md): ORM 设计（GORM 式核心 + 独立驱动）、Phase 2 路线图
+
+## 机器可读契约
+
+- [docs/ai/open-api/public-api.json](docs/ai/open-api/public-api.json): 全量公开 item 清单（3 个 crate：签名、源码位置、状态标记）
+- [docs/ai/open-api/README.md](docs/ai/open-api/README.md): 字段定义、生成与校验方法
+
+## 独立 crate
+
+- [nothings-orm](nothings-orm/README.md): ORM 核心（Entity 派生宏、Schema、Driver、Repository、QueryBuilder）
+- [nothings-orm-sqlite](nothings-orm-sqlite/README.md): SQLite 驱动（rusqlite bundled）
+
+## 模块文档
+
+- [AnySlice](src/any_slices/README.md): 增强版 Vec，45 个方法
+- [AnyMap](src/any_maps/README.md): 有序键值映射，34 个方法
+- [Compressions](src/compressions/README.md): Compressor trait 与 6 个工厂函数
+- [Lz4](src/compressions/lz4/README.md) / [Zlib](src/compressions/zlib/README.md) / [Zstd](src/compressions/zstd4/README.md)
+- [Digests](src/digests/README.md): Bcrypt / Md5Hash / Sha256Hash
+- [Secrets](src/secrets/README.md): Symmetric trait 与 4 个工厂函数
+- [Aes](src/secrets/symmetric/aes/README.md): GCM / CBC / CTR / ECB
+- [Filesystem](src/filesystem/README.md): File / Dir
+- [HttpResponse](src/http_responses/README.md): 统一响应结构
+- [Texts / Timer](src/texts/README.md): 时间字符串解析
+- [Validations](src/validations/README.md): 声明式校验规则
+- [Singletons](src/singletons/README.md): 单例宏（外部 crate 不可用）
+
+## 历史设计文档（可选）
+
+- [docs/superpowers/specs/2026-09-11-secrets-symmetric-aes-design.md](docs/superpowers/specs/2026-09-11-secrets-symmetric-aes-design.md): secrets/AES 模块设计、取舍与实现记录

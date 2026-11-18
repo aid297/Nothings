@@ -1,0 +1,13 @@
+[package]
+name = "nothings-orm"
+version = "0.0.1"
+edition = "2024"
+description = "nothings ORM 核心：Entity / Schema / Driver / Repository"
+license = "MIT"
+repository = "https://github.com/aid297/aid-rs.git"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+nothings-macros = { version = "0.0.3", path = "../nothings-macros" }

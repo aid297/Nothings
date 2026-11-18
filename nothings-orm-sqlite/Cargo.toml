@@ -1,0 +1,14 @@
+[package]
+name = "nothings-orm-sqlite"
+version = "0.0.1"
+edition = "2024"
+description = "nothings ORM 的 SQLite 驱动"
+license = "MIT"
+repository = "https://github.com/aid297/aid-rs.git"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+nothings-orm = { version = "0.0.1", path = "../nothings-orm" }
+rusqlite = { version = "0.32", default-features = false, features = ["bundled"] }

@@ -2,6 +2,18 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput, Fields};
 
+mod entity;
+
+/// ORM 实体的派生宏：生成 ::nothings_orm 的 Schema 与 Entity impl。
+#[proc_macro_derive(Entity, attributes(entity))]
+pub fn derive_entity(input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as DeriveInput);
+    match entity::expand(parsed) {
+        Ok(tokens) => TokenStream::from(tokens),
+        Err(err) => TokenStream::from(err.to_compile_error()),
+    }
+}
+
 /// 从 #[validator(...)] 属性中解析键值对
 /// 自定义解析器，正确处理字符串值内的逗号
 fn parse_validator_attrs(tokens: &proc_macro2::TokenStream) -> Vec<(String, String)> {

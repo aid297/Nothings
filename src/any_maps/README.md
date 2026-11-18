@@ -172,6 +172,6 @@ assert_eq!(map.len(), 1);
 
 ## 备注
 
-- `app.rs` 中声明了 `AnyMapTrait`，但 `AnyMap` 并未实现它，仅作为接口说明存在。请勿在代码中 `use` 该 trait。
+- `app.rs` 中声明了 `AnyMapTrait`，但 `AnyMap` 并未实现它，仅作为接口说明存在。请勿在代码中 `use` 该 trait。其 intended signature 是 `every -> bool` / `clean(&mut self) -> &mut Self`；实体 `AnyMap::every` 因 A4 仍返回 `&Self`，两者不一致属已知状态。
 - `Default` 仅为 `AnyMap<(), ()>` 实现，其他类型参数请用 `AnyMap::new()`。
 - `AnyMap` 不是 `std::collections::HashMap` 的替代品：查找为 O(n) 线性扫描，适合数据量小且需要保留插入顺序的场景。

@@ -2,8 +2,6 @@
 
 `filesystem` 模块提供 `File` 与 `Dir` 两个结构体，覆盖读写、移动、删除、权限设置，以及基于自定义归档格式的整目录打包/还原。
 
-⚠️ **本模块整体不参与 wasm 编译**：`src/lib.rs` 中声明为 `#[cfg(not(target_arch = "wasm32"))] pub mod filesystem;`。在 wasm 目标下引用它会直接编译失败，需要用 `#[cfg(not(target_arch = "wasm32"))]` 包裹。
-
 ```rust
 use nothings::filesystem::file::File;
 use nothings::filesystem::dir::Dir;

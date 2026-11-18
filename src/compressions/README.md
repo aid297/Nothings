@@ -7,15 +7,15 @@
 
 ## 算法一览
 
-| 算法 | 导入路径 | 级别范围 | 默认级别 | wasm | 文档 |
-|------|----------|----------|----------|------|------|
-| **Lz4** | `nothings::compressions::lz4::app::Lz4` | 1-16（⚠️ 不生效） | 1 | ✅ | [README](lz4/README.md) |
-| **Zlib** | `nothings::compressions::zlib::app::Zlib` | 0-9 | 6 | ✅ | [README](zlib/README.md) |
-| **Zstd** | `nothings::compressions::zstd4::app::Zstd` | 1-21 | 3 | ❌ | [README](zstd4/README.md) |
+| 算法 | 导入路径 | 级别范围 | 默认级别 | 文档 |
+|------|----------|----------|----------|------|
+| **Lz4** | `nothings::compressions::lz4::app::Lz4` | 1-16（⚠️ 不生效） | 1 | [README](lz4/README.md) |
+| **Zlib** | `nothings::compressions::zlib::app::Zlib` | 0-9 | 6 | [README](zlib/README.md) |
+| **Zstd** | `nothings::compressions::zstd4::app::Zstd` | 1-21 | 3 | [README](zstd4/README.md) |
 
 三者接口完全一致：`compress` / `compress_with_level` / `decompress` / `compress_file` / `decompress_file` / `compression_ratio`，全部是**关联函数**（不需要先构造实例）。
 
-`Zstd` 依赖 C 绑定，在 `wasm32-unknown-unknown` / `wasm32-wasip1` 下整个 `zstd4` 模块不参与编译，必须用 `#[cfg(not(target_arch = "wasm32"))]` 包裹调用。
+`Zstd` 依赖 C 绑定，需要原生工具链。
 
 ## Compressor trait
 
@@ -38,8 +38,8 @@ pub trait Compressor {
 | `with_lz4_level(level)` | `u32 -> Box<dyn Compressor>` | LZ4，级别 1-16（⚠️ 不生效，见「已知问题」） |
 | `with_zlib()` | `-> Box<dyn Compressor>` | zlib，默认级别 6 |
 | `with_zlib_level(level)` | `u32 -> Box<dyn Compressor>` | zlib，级别 0-9 |
-| `with_zstd()` | `-> Box<dyn Compressor>` | Zstd，默认级别 3（非 wasm） |
-| `with_zstd_level(level)` | `i32 -> Box<dyn Compressor>` | Zstd，级别 1-21（非 wasm） |
+| `with_zstd()` | `-> Box<dyn Compressor>` | Zstd，默认级别 3 |
+| `with_zstd_level(level)` | `i32 -> Box<dyn Compressor>` | Zstd，级别 1-21 |
 
 ⚠️ `with_zstd_level` 的参数是 **`i32`**，其余两个是 `u32`。
 
@@ -82,7 +82,6 @@ assert_eq!(z.decompress(&packed).unwrap(), b"hello");
 | 追求速度、压缩率次要（缓存、网络帧） | Lz4 |
 | 通用、需要跨语言/跨平台互通（HTTP `Content-Encoding: gzip` 的同族格式） | Zlib |
 | 追求压缩率，或既要速度又要压缩率 | Zstd |
-| wasm 环境 | Lz4 / Zlib（Zstd 不可用） |
 
 同一份数据下的实测输出大小（输入为 200000 字节、高度重复的合成序列）：
 

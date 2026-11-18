@@ -36,9 +36,9 @@ pub trait AnyMapTrait<K, V> {
     fn in_values(&self, values: &Vec<V>) -> bool;
     fn not_in_value(&self, value: &V) -> bool;
     fn not_in_values(&self, values: &Vec<V>) -> bool;
-    fn every(&self, func: impl Fn(&K, &V) -> bool) -> &mut Self;
+    fn every(&self, func: impl Fn(&K, &V) -> bool) -> bool;
     fn each(&mut self, func: impl Fn(&K, &V) -> V) -> &mut Self;
-    fn clean(&self) -> &mut Self;
+    fn clean(&mut self) -> &mut Self;
     fn to_string(&self, sep: Option<&str>) -> String;
 }
 

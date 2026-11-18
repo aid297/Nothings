@@ -1,6 +1,6 @@
 # Aes — AES 对称加密
 
-`Aes` 提供 AES-128 / 192 / 256 的加密与解密，支持 **GCM / CBC / CTR / ECB** 四种模式。基于 RustCrypto 纯 Rust 实现，可用于 wasm 环境。
+`Aes` 提供 AES-128 / 192 / 256 的加密与解密，支持 **GCM / CBC / CTR / ECB** 四种模式。基于 RustCrypto 纯 Rust 实现。
 
 实现了 [`Symmetric`](../../README.md) trait，因此可以作为 `Box<dyn Symmetric>` 或 `&dyn Symmetric` 传递。
 
@@ -72,7 +72,7 @@ cipher.set_key(&[0x11; 32]).set_iv(&[0x22; 16]);
 | `generate_nonce()` | 生成 GCM 随机 nonce，12 字节 |
 | `generate_iv()` | 生成 CBC / CTR 随机 iv，16 字节 |
 
-熵源为仓库已有的 `rand` 依赖，wasm 浏览器环境由 Cargo.toml 中配置的 `getrandom` + `wasm_js` 兜底。
+熵源为仓库已有的 `rand` 依赖，由平台默认提供。
 
 ### 加解密（来自 `Symmetric` trait）
 

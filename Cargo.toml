@@ -11,7 +11,7 @@ categories = ["data-structures"]
 readme = "README.md"
 
 [lib]
-crate-type = ["lib", "cdylib"]
+crate-type = ["lib"]
 
 [dependencies]
 rand = "0.10.2"
@@ -19,21 +19,12 @@ flate2 = "1"
 bcrypt = "0.17"
 md-5 = "0.10"
 sha2 = "0.10"
-nothings-macros = { version = "0.0.2", path = "nothings-macros" }
+nothings-macros = { version = "0.0.3", path = "nothings-macros" }
 serde = { version = "1.0.229", features = ["derive"] }
 lz4_flex = { version = "0.14", features = ["frame"] }
-serde_json = "1"
+zstd = "0.13"
 aes = "0.9"
 cbc = { version = "0.2", features = ["alloc"] }
 ctr = { version = "0.10", features = ["alloc"] }
 ecb = { version = "0.2", features = ["alloc"] }
 aes-gcm = { version = "0.11", default-features = false, features = ["aes", "alloc"] }
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-zstd = "0.13"
-
-# 浏览器（wasm32-unknown-unknown）场景：随机数走 JS 宿主
-# wasip1 场景（如 wazero）：getrandom 自动走 WASI random_get，无需此依赖
-[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-getrandom = { version = "0.3", features = ["wasm_js"] }
-getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }

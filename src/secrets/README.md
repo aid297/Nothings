@@ -91,13 +91,9 @@ CBC 下还可能被 padding oracle 攻击还原明文。除非有互通需求，
 ⚠️ **GCM 的 nonce 在同一把密钥下绝不能重复**。重复使用 nonce 会让攻击者恢复出认证子密钥，
 进而伪造任意密文。每条消息都用 `Aes::generate_nonce()` 生成新值，并随密文一起存储或传输。
 
-## wasm 支持
+## 随机数
 
-`secrets` 全模块基于 RustCrypto 纯 Rust 实现，在 `wasm32-unknown-unknown` 与 `wasm32-wasip1` 下均可编译，
-不需要像 `compressions::zstd4` 那样加 `#[cfg(not(target_arch = "wasm32"))]` 包裹。
-
-`Aes::generate_key` / `generate_nonce` / `generate_iv` 走仓库已有的 `rand` 依赖，
-浏览器环境由 Cargo.toml 里配置的 `getrandom` + `wasm_js` 提供熵源。
+`Aes::generate_key` / `generate_nonce` / `generate_iv` 走仓库已有的 `rand` 依赖，熵源由平台默认提供。
 
 ## 与 digests 的配合
 
@@ -134,4 +130,3 @@ assert!(!encrypted.is_empty());
 | GCM 的 AAD（附加认证数据） | `Symmetric::encrypt(&self, data)` 的签名容纳不下，需要时再加 `encrypt_with_aad` |
 | base64 / hex 编解码 | 加密输出保持 `Vec<u8>`，由调用方自行编码 |
 | 文件加解密 | `compressions` 有 `compress_file`，加密侧暂未提供 |
-| wasm C-ABI 导出 | `wasm_exports` 中暂无 AES 导出函数 |

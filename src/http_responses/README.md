@@ -31,7 +31,7 @@ pub struct HttpResponse<T> {
 
 `content` 为 `None` 时会输出 `"content":null`，**不会**被省略（没有 `skip_serializing_if`）。
 
-只派生了 `Serialize`。序列化 `content` 要求 `T: Serialize`，因此下游需要自己依赖 `serde`：
+只派生了 `Serialize`。序列化 `content` 要求 `T: Serialize`，因此下游需要自己依赖 `serde`（示例中的 `serde_json` 也需下游自行添加，本 crate 不提供）：
 
 ```rust
 use serde::Serialize;
