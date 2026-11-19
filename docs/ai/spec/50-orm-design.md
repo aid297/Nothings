@@ -96,9 +96,63 @@ orphan rule：不能 `impl From<rusqlite::Error> for io::Error`，驱动 crate �
 - 比较运算符来自 `NOrmOperator` 枚举白名单，SQL 关键字不来自用户输入；`IS NULL` 不接参数；`IN` 空列表折叠为 `0 = 1` / `1 = 1`；递归渲染保证 `?` 数量与参数顺序严格一致。
 - 事务单层，嵌套 `InvalidInput`；`Err` 必 rollback；无 savepoint。
 
+## Phase 2：JOIN / 子查询（2026-11-19 落地）
+
+**已实现**（SQL 层，不做嵌套对象聚合）：
+
+```
+NOrmJoinKind { Inner, Left, Right, Cross }
+NOrmQueryBuilder {
+    join::<T: NOrmEntity>(kind, on: &[(&str, &str)]) -> &mut Self
+    where_qualified::<T: NOrmSchema>(alias, column, value) -> &mut Self
+    where_in_subquery / where_not_in_subquery / where_exists / where_not_exists
+    all_with::<T: NOrmFromJoined>() -> Result<Vec<T>, Error>   // 元组 1~4 元
+}
+NOrmSubquery { new(sql), with_params(sql, params) }
+NOrmFromJoined for (A,), (A,B), (A,B,C), (A,B,C,D)
+```
+
+- **别名协议**：主表固定 `t0`，第 n 个 JOIN 表为 `tn`。JOIN 查询的 SELECT 列渲染为 `t0.col AS t0_col`、`t1.col AS t1_col`。
+- **零宏改动**：新增 `NOrmPrefixedRow`（`row.rs`）实现 `NOrmRow`，把 `tN_col` 剥离前缀呈现为 `col`，让派生宏生成的 `from_row` 原样复用于宽行——这是能不动 `nothings-macros` 的关键。
+- **WHERE 渲染扩展**：`NOrmCondition::render_into` 新增 `default_alias` 参数；JOIN 模式下裸列补 `t0.`，`NOrmCondition::qualified::<S>` 构造 `tN.col` 叶子。单表查询传 `None`，SQL 字符串与 Phase 1 完全一致。
+- **安全边界**：ON 列必须是安全标识符（字母/数字/下划线，非数字开头）且右列走 `T::COLUMNS` 白名单；子查询 SQL 是调用方字面量、值走 `?` 参数化；两者都不拼接用户输入。
+- **驱动零改动**：两驱动本就原样透传任意 SQL + 位置参数，JOIN/子查询直接可用。
+
+**未做**（仍属 YAGNI）：一对多自动去重 count、跨多 JOIN 链的左列类型化校验（当前左列只做标识符校验）。单层关联预加载见下方 Phase 3。
+
+## Phase 3：Preload 单层关联预加载（2026-11-19 落地）
+
+**已实现**：`preload("books")` 先查主表，再用主键批量查关联表，按外键分组填回实体字段。非 JOIN、非 N+1。
+
+```
+宏属性：#[entity(has_many = "名", target = "T", foreign_key = "列")] → Vec<T>
+        #[entity(belongs_to = "名", target = "T", foreign_key = "列")] → Option<T>
+schema：NOrmRelationKind{HasMany,BelongsTo} + NOrmRelation{
+          name, kind, foreign_key, target_table, target_columns}
+        NOrmSchema::RELATIONS: &'static [NOrmRelation] = &[]   // 带默认值，零破坏
+entity：NOrmPreload { fill_relation(&mut self, name, &[NOrmOwnedRow]) } // 独立 trait
+query：NOrmQueryBuilder::preload(name: &'static str) where E: NOrmPreload
+       NORM_PRELOAD_CHUNK_SIZE = 500
+```
+
+**关键机制**：
+
+- **目标类型在宏展开期捕获**：宏生成 `<Book as NOrmEntity>::from_row(row)`，ProcMacro 不需要知道 `Book::TABLE` 值；无 trait object / Any / 函数指针。
+- **独立 trait + 闭包存储**：`preload()` 带 `where E: NOrmPreload`，约束烘焙进存入 `preloads` 的闭包；`all()` 的 `impl<E: NOrmEntity>` bound 不变，手写 `NOrmEntity` 不调 `preload()` 零影响。
+- **宏改动必要**（与 JOIN 的零宏改动形成对照）：关联字段不能加 SQL trait bound、不进 COLUMNS/from_row/column_value，`from_row` 给 `Vec::new()`/`None` 初值；宏生成 `RELATIONS` 常量与 `fill_relation` 实现。
+- **两阶段**：收集键（has_many 取 pk_value / belongs_to 取 `column_value(fk)`）→ 保序去重 → 每 500 一批 `SELECT cols FROM target WHERE in_col IN (?,...)` → 按外键/主键分组 → 逐实体 `fill_relation`。`in_col` 取白名单规范列名，值全走 `?`。
+- **空键集零 SQL**：主表为空或外键全 NULL 时不发关联查询。
+
+**Phase 4（2026-11-19 落地）**：递归/多层 Preload、懒加载、结果去重。
+
+- `preload("books.comments")` 点分路径：`NOrmPreload` 新增 provided 方法 `preload_one`（封装 `apply_preload`）与 `preload_path`。派生宏为每层关联生成「收集同层子实体 → 连续切片批量递归 → 按原长度回填」代码，目标 Rust 类型在宏展开期捕获，保持每层批量语义（非 N+1）。手写 impl 走 `preload_path` 默认实现，仅单层可用。
+- 路径校验：首段构造期按 `E::RELATIONS` 校验，后续段由递归层 match 逐层校验；重叠路径段级合并保留最长。
+- 结果去重：`apply_preload` 按目标主键对结果行去重（保留首次）后再分组填回。
+- 懒加载：`NOrmRepository::load_relation(&mut entity, name)` 支持点分，复用 `preload_path`；单实体 N+1，文档标明。
+
 ## 明确不做（YAGNI）
 
-async / tokio；workspace；Cargo features；新公开错误类型；thiserror / anyhow；`serde::Deserialize` 派生；Postgres 驱动；关联 / Migration / 钩子实现；trybuild；连接池、缓存、懒加载、复合主键、UUID 主键、SQL 日志、metrics；改 C-ABI（仓库已移除 wasm 导出层）；`cargo fmt`；新增 CI / Dockerfile / examples / Makefile。
+async / tokio；workspace；Cargo features；新公开错误类型；thiserror / anyhow；`serde::Deserialize` 派生；Postgres 驱动；Migration / 钩子实现（SQL JOIN 与递归 Preload 已实现，见 Phase 2/3/4）；trybuild；连接池、缓存、复合主键、UUID 主键、SQL 日志、metrics；改 C-ABI（仓库已移除 wasm 导出层）；`cargo fmt`；新增 CI / Dockerfile / examples / Makefile。
 
 MySQL 驱动已于 2026-11-18 作为独立 crate `nothings-orm-mysql` 落地，核心 / 宏 / SQLite 驱动零改动，设计见 `spec/51-mysql-driver-design.md`；本 spec 的 Phase 1 范围与验收基线不变。
 
@@ -107,7 +161,8 @@ MySQL 驱动已于 2026-11-18 作为独立 crate `nothings-orm-mysql` 落地，�
 | 层次 | 位置 | 做法 |
 | --- | --- | --- |
 | 核心纯逻辑 | `nothings-orm/src/*` 内 `#[cfg(test)]` | 假 NOrmDriver 记录 SQL / 返回 canned `NOrmOwnedRow`，零 DB |
-| 宏展开成功 | `nothings-orm/tests/entity.rs` | 断言 `NOrmSchema::TABLE/COLUMNS`、`from_row`、`pk_value` |
+| 宏展开成功 | `nothings-orm/tests/entity.rs` | 断言 `NOrmSchema::TABLE/COLUMNS/RELATIONS`、`from_row`、`pk_value`、`fill_relation` |
+| 关联预加载 | `nothings-orm/src/query.rs` 单测 + `nothings-orm-sqlite/tests/preload.rs` / `nothings-orm-mysql/tests/preload.rs` | 精确两阶段 SQL、500 分块、空键集、NULL 外键、has_many/belongs_to |
 | SQLite 内存 | `nothings-orm-sqlite/tests/crud.rs` | CRUD / NOrmQueryBuilder / 事务 / 约束冲突 / 类型不匹配 / 0 行更新 |
 | 真实文件 | `nothings-orm-sqlite/tests/file_db.rs` | `tempfile` 临时库，关闭重开验证持久性 |
 | 宏展开失败 | 不引入 trybuild | 固定 `compile_error!` 文案 + README 反例 |

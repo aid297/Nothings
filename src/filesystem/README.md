@@ -132,7 +132,7 @@ let d = Dir::new("/Users");   // 会走完整个 /Users 下所有层级的所有
 | `count(&self)` | `-> usize` | 当前层条目数 = 文件数 + 子目录数 |
 | `is_empty(&self)` | `-> bool` | 当前层是否为空 |
 | `up(self)` | `-> Self` | 返回上级目录；无上级时返回自身并写入 `err` |
-| `join(self, paths)` | `&Vec<&str> -> Self` | ⚠️ **当前无效**，见「已知问题」 |
+| `join(self, paths)` | `&Vec<&str> -> Self` | 逐段拼接路径并返回新 `Dir`；目标不存在时 `err` 写明 |
 | `remove(self)` | `-> Result<bool, String>` | `remove_dir_all`，**递归删除全部内容**，消耗自身 |
 | `create(&mut self, mode)` | `u32 -> &Self` | 创建目录（递归）；已存在则写入 `err` |
 | `set_mode(&self, mode)` | `u32 -> Result<bool, String>` | 设置 Unix 权限位；非 Unix 平台**总是**返回 `Err` |
@@ -201,32 +201,6 @@ assert_eq!(restored.list_files().len(), dir.list_files().len());
 `unzip` 内部用 `output.join(relative_path)` 写文件，**不校验路径是否逃出输出目录**。本模块自己产出的归档是安全的（路径来自 `strip_prefix`），但如果归档来自不可信来源，构造 `../../etc/passwd` 这样的路径即可写到任意位置（zip-slip）。**不要对不可信归档调用 `Dir::unzip`。**
 
 ## 已知问题
-
-### 1. `Dir::join` 是空操作
-
-```rust
-pub fn join(mut self, paths: &Vec<&str>) -> Self {
-    let path = PathBuf::from(self.full_path.as_str());
-    for i in 0..paths.len() {
-        let _ = path.join(paths[i]);     // PathBuf::join 返回新值，不修改自身
-    }
-    ...
-    Dir::new(path.to_str().unwrap())     // path 始终等于 full_path
-}
-```
-
-`PathBuf::join` 是**取值**方法（返回新的 `PathBuf`），结果被 `let _ =` 丢弃，`path` 从未改变。实测 `Dir::new("/tmp").join(&vec!["a", "b"]).full_path == "/tmp"`。
-
-替代写法：
-
-```rust
-use std::path::PathBuf;
-use nothings::filesystem::dir::Dir;
-
-let base = PathBuf::from("/tmp");
-let target = base.join("a").join("b");
-let d = Dir::new(target.to_str().unwrap());
-```
 
 ### 2. `File::mv` 成功后不清除 `err`
 
@@ -307,6 +281,6 @@ println!("{err:?} {}", f.full_path);
 
 ## 备注
 
-- `Dir` 的 `sub_files` / `sub_dirs` 是 [`AnySlice`](../any_slices/README.md)，因此 `list_files()` 上可以直接用 `has` / `filter` / `pluck` / `to_string` 等方法。注意 `AnySlice::remove_by_indexes` 与 `shuffle` 本身是失效的
+- `Dir` 的 `sub_files` / `sub_dirs` 是 [`AnySlice`](../any_slices/README.md)，因此 `list_files()` 上可以直接用 `has` / `filter` / `pluck` / `to_string` 等方法。`remove_by_indexes` 与 `shuffle` 现均可用
 - `File::write` 与 `Dir::zip` / `unzip` 都是**全量覆盖**，没有追加模式
 - 所有路径参数都是 `&str`，不接受 `Path` / `PathBuf`，需要自己 `to_str().unwrap()`

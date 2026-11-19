@@ -3,7 +3,7 @@
 use std::io::{Error, ErrorKind};
 
 use crate::driver::NOrmDriver;
-use crate::entity::NOrmEntity;
+use crate::entity::{NOrmEntity, NOrmPreload};
 use crate::query::NOrmQueryBuilder;
 use crate::value::NOrmValue;
 
@@ -119,6 +119,25 @@ impl<'a, D: NOrmDriver> NOrmRepository<'a, D> {
 
     pub fn query<E: NOrmEntity>(&mut self) -> NOrmQueryBuilder<'_, E, D> {
         NOrmQueryBuilder::new(self.driver)
+    }
+
+    /// 懒加载：为已取出的单个实体按需填充关联字段，支持点分路径（`books.comments`）。
+    ///
+    /// 复用预加载的两阶段查询与目标主键去重。每个实体一次关联查询，逐个调用会
+    /// 产生 N+1——适合「已取出的单个实体补关联」，批量场景请用 `query().preload(..)`。
+    pub fn load_relation<E: NOrmPreload>(
+        &mut self,
+        entity: &mut E,
+        name: &str,
+    ) -> Result<(), Error> {
+        let path: Vec<&str> = name.split('.').collect();
+        if path.iter().any(|s| s.is_empty()) {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!("预加载路径 {name} 含空段"),
+            ));
+        }
+        E::preload_path(std::slice::from_mut(entity), &path, &mut *self.driver)
     }
 
     /// 单层事务。嵌套调用返回 InvalidInput；Err 路径必 rollback。

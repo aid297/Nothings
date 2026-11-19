@@ -31,7 +31,7 @@ nothings = "0.0.9"
 | **HttpResponse** | `nothings::http_responses` | 可序列化的统一响应结构 `HttpResponse<T>`（`ok` / `bad_request` 等 7 个构造器） | [README](src/http_responses/README.md) |
 | **Texts / Timer** | `nothings::texts::timer` | 将 `"1h30m"`、`"2w3d"` 等字符串解析为 `std::time::Duration` | [README](src/texts/README.md) |
 | **Validations** | `nothings::validations` | 基于 `#[derive(Nothings)]` 的声明式结构体字段校验 | [README](src/validations/README.md) |
-| **Singletons** | `nothings::impl_singleton!` | 通过宏为任意类型生成 `instance()` / `default()` / `with(...)` 单例接口 ⚠️ 当前外部 crate 不可用 | [README](src/singletons/README.md) |
+| **Singletons** | `nothings::impl_singleton!` | 通过宏为任意类型生成 `instance()` / `default()` / `with(...)` 单例接口（外部 crate 可用） | [README](src/singletons/README.md) |
 
 ### 独立 crate（不在 `nothings` 内，按需引入）
 
@@ -229,7 +229,7 @@ let d = Dir::new_or_create("/tmp/demo").unwrap();
 println!("{} 个条目，空={}", d.count(), d.is_empty());
 ```
 
-⚠️ `Dir::zip` 产出的**不是标准 ZIP 文件**（自定义 TLV 归档 + 压缩，magic 不是 `PK\x03\x04`），只能用 `Dir::unzip` 配同一算法还原；空目录不会被保存。`Dir::join` 当前是空操作。详见 [src/filesystem/README.md](src/filesystem/README.md)。
+⚠️ `Dir::zip` 产出的**不是标准 ZIP 文件**（自定义 TLV 归档 + 压缩，magic 不是 `PK\x03\x04`），只能用 `Dir::unzip` 配同一算法还原；空目录不会被保存。详见 [src/filesystem/README.md](src/filesystem/README.md)。
 
 ### HttpResponse — 统一响应结构
 
@@ -285,29 +285,23 @@ match checker.check() {
 
 规则用 `(...)` 包裹并连续书写，属性名为 `rule` / `name` / `kind` / `nested`；完整规则与操作符列表见 [src/validations/README.md](src/validations/README.md)。
 
-### Singletons — 当前不可用
+### Singletons
 
-`impl_singleton!` 宏依赖 `pub(crate)` 的 `Singleton` trait，在外部 crate 调用会直接编译失败（`E0603: trait 'Singleton' is private`），且**整个宏失效**，连 `instance()` / `default()` 也不会生成。模块内测试能过是因为同 crate。替代写法见 [src/singletons/README.md](src/singletons/README.md)。
+`impl_singleton!` 宏外部 crate 可用：`Singleton` trait 已公开，`instance()` / `with()` / `default()` 均可调用。用法见 [src/singletons/README.md](src/singletons/README.md)，跨 crate 回归守护见 `tests/singletons.rs`。
 
 ## 已知问题
 
-以下问题已在对应模块文档中标注，修复前请勿依赖这些方法：
+以下问题仍存在，修复前请勿依赖（A1-A7 已于 2026-11-19 修复并从表中移除）：
 
 | 模块 | 问题 | 影响与替代方案 |
 |------|------|---------------|
-| AnySlice | `remove_by_indexes` 使用惰性迭代器但未消费，实际为空操作 | 直接使 `AnyMap::filter`、`remove_by_keys`、`remove_by_values`、`remove_empty` 全部失效；改用 `to_vec()` + `filter` + `set_data` |
-| AnySlice | `shuffle` 打乱的是临时克隆，返回值仍为原顺序 | 需打乱请改用 `shuffle_self` |
 | AnySlice | `get_indexes_by_values` 内部 `unwrap` | 任一值不存在即 panic；`AnyMap::get_indexes_by_values` 无此问题（用 `filter_map`） |
-| AnyMap | `every` 在两条分支上都返回 `&Self`，无法作为谓词 | 请改用 `to_entries().iter().all(...)` |
-| Compressions | `Lz4::compress_with_level` 的 `level` 参数不影响输出 | lz4_flex 仅支持快速压缩模式，实测级别 1 / 8 / 16 输出逐字节相同；需高压缩率改用 Zstd 或 Zlib |
-| Filesystem | `Dir::join` 是空操作（`PathBuf::join` 的返回值被 `let _ =` 丢弃） | 返回的仍是原目录；改用 `std::path::PathBuf::join` 自行拼接后再 `Dir::new` |
 | Filesystem | `File::mv` 成功后不清除 `err` | 前一次失败的错误会一直残留，导致误判；调用前先 `f.err = None`。`Dir::mv` 无此问题 |
 | Filesystem | `Dir::zip` 产出的不是标准 ZIP，且丢失空目录 | 自定义 TLV 归档 + 压缩，magic 不是 `PK\x03\x04`，系统解压工具打不开；只能用 `Dir::unzip` 配同一算法还原 |
 | Filesystem | `Dir::new` 会递归扫描整棵子树 | 对大目录开销巨大且无惰性接口；只需浅层信息时直接用 `std::fs::read_dir` |
 | Filesystem | `Dir::up` 对相对路径失效 | `Path::new("demo").parent()` 是空串，触发「无法返回上级目录」并原样返回自身；先 `canonicalize` |
 | HttpResponse | 状态码无法自定义，`errors` 字段无实际作用 | 初始化入口 `empty()` 是私有的，只能改 `pub` 字段绕过；`std::fmt::Error` 不携带信息且被 `#[serde(skip)]` |
 | HttpResponse | 没有 `Debug` / `Clone` / `PartialEq` / `Deserialize` | 不能 `{:?}` 打印、不能 `assert_eq!`、不能反序列化；只适合做服务端出参 |
-| Singletons | `impl_singleton!` 在外部 crate 编译失败（`E0603: trait 'Singleton' is private`） | **整个宏失效**，`instance()` / `default()` 也不会生成；按模块文档手写 `OnceLock<Mutex<T>>` |
 | nothings-orm-mysql | 标识符不加反引号，保留字列名会报 1064 | `E::COLUMNS` / `E::TABLE` 避开 MySQL 保留字；DDL 列名与 `#[entity(column = ...)]` 字面一致 |
 | nothings-orm-mysql | `NOrmQueryBuilder::offset()` 单独调用会生成 MySQL 不支持的 `SELECT ... OFFSET n` | 必须同时调用 `limit()`；`one()` 自带 `limit(1)`，`get` / `find_one` 不受影响 |
 | nothings-orm-mysql | `execute_ddl` 不参数化且实测允许多语句；集成测试强制 DSN | DDL 只用固定字面量、绝不接用户输入；跑测试前设置 `NOTHINGS_MYSQL_DSN` |

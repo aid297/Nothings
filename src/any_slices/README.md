@@ -50,7 +50,7 @@ assert_eq!(a.difference(&b).to_vec(),   &vec![1]);
 | `each(&mut self, func)` | `impl Fn(usize, &T) -> T` `-> &mut Self` | 对每个元素执行转换并原地更新，回调首参为索引 | |
 | `sort(&mut self, func)` | `impl Fn(&T, &T) -> Ordering` `-> &mut Self` | 按自定义比较函数排序 | |
 | `remove_by_index(&mut self, index)` | `&usize -> &mut Self` | **原地**移除，参数是引用；越界安全 | |
-| `remove_by_indexes(&mut self, indexes)` | `&Vec<usize> -> &mut Self` | ⚠️ 当前无效，见「已知问题」 | |
+| `remove_by_indexes(&mut self, indexes)` | `&Vec<usize> -> &mut Self` | 按原始索引批量移除；越界忽略、重复索引幂等、乱序安全 | |
 | `remove_empty(&mut self)` | `-> &mut Self` | 移除所有默认值元素（如 `0`、`""`） | `T: PartialEq + Default + Clone` |
 
 ### 查询与判断
@@ -103,46 +103,24 @@ assert_eq!(a.difference(&b).to_vec(),   &vec![1]);
 |------|------|------|------|
 | `chunk(&self, size)` | `usize -> Vec<Vec<T>>` | 按指定大小分块。**`size` 为 0 会 panic** | `T: Clone` |
 | `pluck<DST>(&self, func)` | `impl Fn(&T) -> DST` `-> Vec<DST>` | 映射每个元素并收集为 `Vec` | |
-| `shuffle(&self)` | `-> AnySlice<T>` | ⚠️ 当前无效，见「已知问题」 | `T: Clone` |
-| `shuffle_self(&mut self)` | `-> &mut Self` | 原地随机打乱，**可用** | |
+| `shuffle(&self)` | `-> AnySlice<T>` | 返回打乱后的新副本，原 slice 不变 | `T: Clone` |
+| `shuffle_self(&mut self)` | `-> &mut Self` | 原地随机打乱 | |
 | `to_string(&self, sep)` | `Option<&str> -> String` | 转为字符串，默认分隔符 `,` | `T: Display` |
 
-## 已知问题
+## 批量移除的边界
 
-### `remove_by_indexes` 不生效
-
-```rust
-// src/any_slices/app.rs:347
-pub fn remove_by_indexes(&mut self, indexes: &Vec<usize>) -> &mut Self {
-    let _ = indexes.iter().map(|index| self.data.remove(*index)); // map 惰性，立即被丢弃
-    self
-}
-```
-
-`Iterator::map` 是惰性适配器，`let _ =` 使其在未消费时立即析构，因此没有任何元素被移除。该方法目前等价于空操作。
-
-这同时导致依赖它的 `AnyMap::filter`、`AnyMap::remove_by_keys`、`AnyMap::remove_by_values`、`AnyMap::remove_empty` 全部失效，详见 [any_maps/README.md](../any_maps/README.md)。
-
-临时替代写法：
+`remove_by_indexes` 按「原始索引」移除：内部用 `mem::take` + `into_iter().enumerate().filter()` 重建数据，不给元素类型增加 `Clone` 约束。
+越界索引忽略（与 `remove_by_index` 一致）、重复索引幂等、索引乱序或降序均安全，空索引集等于空操作。
 
 ```rust
+use nothings::any_slices::app::AnySlice;
+
 let mut slice = AnySlice::new(vec![1, 2, 3, 4, 5]);
-let remove = vec![0usize, 2];
-
-// 用 filter 按下标保留，代替 remove_by_indexes
-let kept: Vec<i32> = slice.to_vec()
-    .iter()
-    .enumerate()
-    .filter(|(i, _)| !remove.contains(i))
-    .map(|(_, v)| *v)
-    .collect();
-slice.set_data(kept);
+slice.remove_by_indexes(&vec![0, 2]);
 assert_eq!(slice.to_vec(), &vec![2, 4, 5]);
 ```
 
-### `shuffle` 返回未打乱的副本
-
-`shuffle` 对一个临时克隆执行打乱后将其丢弃，返回的仍是原顺序数据。需要打乱请用 `shuffle_self`。
+`shuffle` 返回打乱后的新副本（不改原对象），`shuffle_self` 原地打乱；两者共享同一随机源，均不保证特定顺序。
 
 ## 链式调用示例
 

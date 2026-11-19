@@ -206,7 +206,7 @@ impl<K, V> AnyMap<K, V> {
         self
     }
 
-    pub fn remove_empty(&mut self) -> &Self
+    pub fn remove_empty(&mut self) -> &mut Self
     where
         K: Clone,
         V: PartialEq + Default + Clone,
@@ -363,21 +363,16 @@ impl<K, V> AnyMap<K, V> {
         self.values.not_has(values)
     }
 
-    pub fn every(&self, func: impl Fn(&K, &V) -> bool) -> &Self
+    pub fn every(&self, func: impl Fn(&K, &V) -> bool) -> bool
     where
         K: Clone,
         V: Clone,
     {
-        for idx in self.keys.get_indexes() {
+        self.keys.get_indexes().iter().all(|&idx| {
             let key = self.keys.get_value_by_index(idx).unwrap();
             let value = self.values.get_value_by_index(idx).unwrap();
-
-            if !func(&key, &value) {
-                return self;
-            }
-        }
-
-        self
+            func(&key, &value)
+        })
     }
 
     pub fn each(&mut self, func: impl Fn(&K, &V) -> V) -> &mut Self

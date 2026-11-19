@@ -182,6 +182,15 @@
       "file": "nothings-orm/src/entity.rs"
     },
     {
+      "path": "nothings_orm::join",
+      "visibility": "pub",
+      "cfg": null,
+      "test_only": false,
+      "declaration": "pub mod join;",
+      "declared_in": "nothings-orm/src/lib.rs",
+      "file": "nothings-orm/src/join.rs"
+    },
+    {
       "path": "nothings_orm::query",
       "visibility": "pub",
       "cfg": null,
@@ -1314,8 +1323,8 @@
       "signature": "pub fn filter(&mut self, f: impl Fn(&K, &V) -> bool) -> &mut Self where K: Clone, V: Clone",
       "cfg": null,
       "attributes": null,
-      "status": "broken",
-      "note": "A2: 依赖 AnySlice::remove_by_indexes，调用后数据不变",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
       "line": 185
@@ -1327,11 +1336,11 @@
       "name": "remove_empty",
       "owner": "AnyMap",
       "visibility": "pub",
-      "signature": "pub fn remove_empty(&mut self) -> &Self where K: Clone, V: PartialEq + Default + Clone",
+      "signature": "pub fn remove_empty(&mut self) -> &mut Self where K: Clone, V: PartialEq + Default + Clone",
       "cfg": null,
       "attributes": null,
-      "status": "broken",
-      "note": "A2: 同上",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
       "line": 209
@@ -1378,8 +1387,8 @@
       "signature": "pub fn remove_by_keys(&mut self, keys: &Vec<K>) -> &mut Self where K: PartialEq",
       "cfg": null,
       "attributes": null,
-      "status": "broken",
-      "note": "A2: 同上",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
       "line": 253
@@ -1394,8 +1403,8 @@
       "signature": "pub fn remove_by_values(&mut self, values: &Vec<V>) -> &mut Self where V: PartialEq",
       "cfg": null,
       "attributes": null,
-      "status": "broken",
-      "note": "A2: 同上",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
       "line": 264
@@ -1583,11 +1592,11 @@
       "name": "every",
       "owner": "AnyMap",
       "visibility": "pub",
-      "signature": "pub fn every(&self, func: impl Fn(&K, &V) -> bool) -> &Self where K: Clone, V: Clone",
+      "signature": "pub fn every(&self, func: impl Fn(&K, &V) -> bool) -> bool where K: Clone, V: Clone",
       "cfg": null,
       "attributes": null,
-      "status": "broken",
-      "note": "A4: 返回 &Self 而不是 bool，不能作谓词",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
       "line": 366
@@ -1606,7 +1615,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
-      "line": 383
+      "line": 378
     },
     {
       "path": "nothings::any_maps::app::AnyMap::clean",
@@ -1622,7 +1631,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
-      "line": 398
+      "line": 393
     },
     {
       "path": "nothings::any_maps::app::AnyMap::len",
@@ -1638,7 +1647,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
-      "line": 406
+      "line": 401
     },
     {
       "path": "nothings::any_maps::app::AnyMap::to_entries",
@@ -1654,7 +1663,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
-      "line": 413
+      "line": 408
     },
     {
       "path": "nothings::any_maps::app::AnyMap::to_string",
@@ -1670,7 +1679,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_maps/app.rs",
-      "line": 432
+      "line": 427
     },
     {
       "path": "nothings::any_slices::app::AnySlice",
@@ -2752,8 +2761,8 @@
       "signature": "pub fn shuffle(&self) -> AnySlice<T> where T: Clone",
       "cfg": null,
       "attributes": null,
-      "status": "broken",
-      "note": "A3: 打乱的是临时克隆，返回原顺序；改用 shuffle_self",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
       "line": 184
@@ -2772,7 +2781,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 194
+      "line": 193
     },
     {
       "path": "nothings::any_slices::app::AnySlice::len",
@@ -2788,7 +2797,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 199
+      "line": 198
     },
     {
       "path": "nothings::any_slices::app::AnySlice::len_without_empty",
@@ -2804,7 +2813,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 203
+      "line": 202
     },
     {
       "path": "nothings::any_slices::app::AnySlice::remove_empty",
@@ -2820,7 +2829,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 217
+      "line": 216
     },
     {
       "path": "nothings::any_slices::app::AnySlice::append",
@@ -2836,7 +2845,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 227
+      "line": 226
     },
     {
       "path": "nothings::any_slices::app::AnySlice::push",
@@ -2852,7 +2861,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 232
+      "line": 231
     },
     {
       "path": "nothings::any_slices::app::AnySlice::filter",
@@ -2868,7 +2877,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 237
+      "line": 236
     },
     {
       "path": "nothings::any_slices::app::AnySlice::all_empty",
@@ -2884,7 +2893,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 242
+      "line": 241
     },
     {
       "path": "nothings::any_slices::app::AnySlice::any_empty",
@@ -2900,7 +2909,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 249
+      "line": 248
     },
     {
       "path": "nothings::any_slices::app::AnySlice::copy",
@@ -2916,7 +2925,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 256
+      "line": 255
     },
     {
       "path": "nothings::any_slices::app::AnySlice::chunk",
@@ -2932,7 +2941,7 @@
       "note": "B2: size == 0 会 panic",
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 265
+      "line": 264
     },
     {
       "path": "nothings::any_slices::app::AnySlice::pluck",
@@ -2948,7 +2957,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 275
+      "line": 274
     },
     {
       "path": "nothings::any_slices::app::AnySlice::intersection",
@@ -2964,7 +2973,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 279
+      "line": 278
     },
     {
       "path": "nothings::any_slices::app::AnySlice::intersection_slicer",
@@ -2980,7 +2989,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 292
+      "line": 291
     },
     {
       "path": "nothings::any_slices::app::AnySlice::difference",
@@ -2996,7 +3005,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 299
+      "line": 298
     },
     {
       "path": "nothings::any_slices::app::AnySlice::difference_slicer",
@@ -3012,7 +3021,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 312
+      "line": 311
     },
     {
       "path": "nothings::any_slices::app::AnySlice::union",
@@ -3028,7 +3037,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 319
+      "line": 318
     },
     {
       "path": "nothings::any_slices::app::AnySlice::union_slicer",
@@ -3044,7 +3053,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 333
+      "line": 332
     },
     {
       "path": "nothings::any_slices::app::AnySlice::remove_by_index",
@@ -3060,7 +3069,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 340
+      "line": 339
     },
     {
       "path": "nothings::any_slices::app::AnySlice::remove_by_indexes",
@@ -3072,11 +3081,11 @@
       "signature": "pub fn remove_by_indexes(&mut self, indexes: &Vec<usize>) -> &mut Self",
       "cfg": null,
       "attributes": null,
-      "status": "broken",
-      "note": "A1: 惰性迭代器未消费，实际为空操作；连带使 AnyMap 的四个删除/过滤方法失效",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 347
+      "line": 348
     },
     {
       "path": "nothings::any_slices::app::AnySlice::every",
@@ -3092,7 +3101,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 352
+      "line": 360
     },
     {
       "path": "nothings::any_slices::app::AnySlice::each",
@@ -3108,7 +3117,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 361
+      "line": 369
     },
     {
       "path": "nothings::any_slices::app::AnySlice::sort",
@@ -3124,7 +3133,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 372
+      "line": 380
     },
     {
       "path": "nothings::any_slices::app::AnySlice::clean",
@@ -3140,7 +3149,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 377
+      "line": 385
     },
     {
       "path": "nothings::any_slices::app::AnySlice::to_string",
@@ -3156,7 +3165,7 @@
       "note": null,
       "platform": "all",
       "file": "src/any_slices/app.rs",
-      "line": 382
+      "line": 390
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4",
@@ -3171,7 +3180,7 @@
       "status": "ok",
       "note": null,
       "file": "src/compressions/lz4/app.rs",
-      "line": 14
+      "line": 6
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::new",
@@ -3187,7 +3196,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 20
+      "line": 12
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::with_level",
@@ -3203,7 +3212,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 25
+      "line": 17
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::compress",
@@ -3219,7 +3228,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 40
+      "line": 32
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::compress_with_level",
@@ -3231,11 +3240,11 @@
       "signature": "pub fn compress_with_level(data: &[u8], level: u32) -> Result<Vec<u8>, Error>",
       "cfg": null,
       "attributes": null,
-      "status": "limited",
-      "note": "A7: level 参数不影响输出",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 66
+      "line": 59
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::decompress",
@@ -3251,7 +3260,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 87
+      "line": 84
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::compress_file",
@@ -3267,7 +3276,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 102
+      "line": 99
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::compress_file_with_level",
@@ -3283,7 +3292,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 115
+      "line": 112
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::decompress_file",
@@ -3299,7 +3308,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 134
+      "line": 131
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::compression_ratio",
@@ -3315,7 +3324,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 145
+      "line": 142
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::default",
@@ -3331,7 +3340,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 154
+      "line": 151
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::compress",
@@ -3347,7 +3356,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 160
+      "line": 157
     },
     {
       "path": "nothings::compressions::lz4::app::Lz4::decompress",
@@ -3363,7 +3372,7 @@
       "note": null,
       "platform": "all",
       "file": "src/compressions/lz4/app.rs",
-      "line": 164
+      "line": 161
     },
     {
       "path": "nothings::compressions::Compressor",
@@ -3438,8 +3447,8 @@
       "signature": "pub fn with_lz4_level(level: u32) -> Box<dyn Compressor>",
       "cfg": null,
       "attributes": null,
-      "status": "limited",
-      "note": "A7: level 参数不影响输出",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/compressions/mod.rs",
       "line": 19
@@ -4447,8 +4456,8 @@
       "signature": "pub fn join(mut self, paths: &Vec<&str>) -> Self",
       "cfg": null,
       "attributes": null,
-      "status": "broken",
-      "note": "A5: PathBuf::join 返回值被丢弃，是空操作",
+      "status": "ok",
+      "note": null,
       "platform": "all",
       "file": "src/filesystem/dir.rs",
       "line": 174
@@ -5478,6 +5487,37 @@
       "line": 401
     },
     {
+      "path": "nothings::singletons::app::Singleton",
+      "module": "nothings::singletons::app",
+      "kind": "trait",
+      "name": "Singleton",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub trait Singleton: Sized",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "src/singletons/app.rs",
+      "line": 1
+    },
+    {
+      "path": "nothings::singletons::app::Singleton::with",
+      "module": "nothings::singletons::app",
+      "kind": "fn",
+      "name": "with",
+      "owner": "Singleton",
+      "visibility": "inherited (trait method)",
+      "signature": "fn with<F, R>(f: F) -> R where F: FnOnce(&mut Self) -> R",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "src/singletons/app.rs",
+      "line": 2
+    },
+    {
       "path": "nothings::singletons::app::impl_singleton!",
       "module": "nothings::singletons::app",
       "kind": "macro",
@@ -5488,8 +5528,8 @@
       "attributes": [
         "#[macro_export]"
       ],
-      "status": "broken",
-      "note": "A6: 展开引用 pub(crate) Singleton，在外部 crate 整体编译失败",
+      "status": "ok",
+      "note": null,
       "file": "src/singletons/app.rs",
       "line": 8
     },
@@ -6528,7 +6568,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/lib.rs",
-      "line": 12
+      "line": 13
     },
     {
       "path": "nothings_orm::condition::NOrmOperator",
@@ -6545,7 +6585,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/condition.rs",
-      "line": 13
+      "line": 14
     },
     {
       "path": "nothings_orm::condition::NOrmCondition",
@@ -6560,7 +6600,24 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/condition.rs",
-      "line": 51
+      "line": 52
+    },
+    {
+      "path": "nothings_orm::condition::NOrmSubqueryKind",
+      "module": "nothings_orm::condition",
+      "kind": "enum",
+      "name": "NOrmSubqueryKind",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub enum NOrmSubqueryKind",
+      "cfg": null,
+      "attributes": [
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
+      ],
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/condition.rs",
+      "line": 116
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::cmp",
@@ -6576,7 +6633,7 @@
       "note": "ORM1: 列名校验错误延后到终结方法报 InvalidInput；In/NotIn/IsNull/IsNotNull 不接受单值",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 104
+      "line": 212
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::eq",
@@ -6592,7 +6649,7 @@
       "note": "ORM1: 列名校验错误延后到终结方法报 InvalidInput；独立构造需显式 NOrmCondition::<E> 类型参数",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 116
+      "line": 224
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::ne",
@@ -6608,7 +6665,7 @@
       "note": "ORM1: 同 eq",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 120
+      "line": 228
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::gt",
@@ -6624,7 +6681,7 @@
       "note": "ORM1: 同 eq",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 124
+      "line": 232
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::ge",
@@ -6640,7 +6697,7 @@
       "note": "ORM1: 同 eq",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 128
+      "line": 236
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::lt",
@@ -6656,7 +6713,7 @@
       "note": "ORM1: 同 eq",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 132
+      "line": 240
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::le",
@@ -6672,7 +6729,7 @@
       "note": "ORM1: 同 eq",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 136
+      "line": 244
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::like",
@@ -6688,7 +6745,7 @@
       "note": "ORM1: 同 eq；LIKE 通配符由调用方提供",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 141
+      "line": 249
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::not_like",
@@ -6704,7 +6761,7 @@
       "note": "ORM1: 同 eq；LIKE 通配符由调用方提供",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 145
+      "line": 253
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::in_list",
@@ -6720,7 +6777,7 @@
       "note": "ORM1: 列名校验错误延后报 InvalidInput；空列表渲染为 0 = 1；独立构造需显式 NOrmCondition::<E> 类型参数",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 150
+      "line": 258
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::not_in_list",
@@ -6736,7 +6793,7 @@
       "note": "ORM1: 同 in_list；空列表渲染为 1 = 1",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 159
+      "line": 267
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::is_null",
@@ -6752,7 +6809,7 @@
       "note": "ORM1: 列名校验错误延后报 InvalidInput；独立构造需显式 NOrmCondition::<E> 类型参数",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 167
+      "line": 275
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::is_not_null",
@@ -6768,7 +6825,71 @@
       "note": "ORM1: 同 is_null",
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 171
+      "line": 279
+    },
+    {
+      "path": "nothings_orm::condition::NOrmCondition::in_subquery",
+      "module": "nothings_orm::condition",
+      "kind": "fn",
+      "name": "in_subquery",
+      "owner": "NOrmCondition",
+      "visibility": "pub",
+      "signature": "pub fn in_subquery(column: &str, subquery: NOrmSubquery) -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/condition.rs",
+      "line": 284
+    },
+    {
+      "path": "nothings_orm::condition::NOrmCondition::not_in_subquery",
+      "module": "nothings_orm::condition",
+      "kind": "fn",
+      "name": "not_in_subquery",
+      "owner": "NOrmCondition",
+      "visibility": "pub",
+      "signature": "pub fn not_in_subquery(column: &str, subquery: NOrmSubquery) -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/condition.rs",
+      "line": 289
+    },
+    {
+      "path": "nothings_orm::condition::NOrmCondition::exists",
+      "module": "nothings_orm::condition",
+      "kind": "fn",
+      "name": "exists",
+      "owner": "NOrmCondition",
+      "visibility": "pub",
+      "signature": "pub fn exists(subquery: NOrmSubquery) -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/condition.rs",
+      "line": 294
+    },
+    {
+      "path": "nothings_orm::condition::NOrmCondition::not_exists",
+      "module": "nothings_orm::condition",
+      "kind": "fn",
+      "name": "not_exists",
+      "owner": "NOrmCondition",
+      "visibility": "pub",
+      "signature": "pub fn not_exists(subquery: NOrmSubquery) -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/condition.rs",
+      "line": 299
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::and",
@@ -6784,7 +6905,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 176
+      "line": 304
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::or",
@@ -6800,7 +6921,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 183
+      "line": 311
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::group",
@@ -6816,7 +6937,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 190
+      "line": 318
     },
     {
       "path": "nothings_orm::condition::NOrmCondition::not",
@@ -6832,7 +6953,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/condition.rs",
-      "line": 218
+      "line": 355
     },
     {
       "path": "nothings_orm::driver::NOrmDriver",
@@ -6958,7 +7079,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/entity.rs",
-      "line": 13
+      "line": 14
     },
     {
       "path": "nothings_orm::entity::NOrmEntity::from_row",
@@ -6974,7 +7095,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/entity.rs",
-      "line": 14
+      "line": 15
     },
     {
       "path": "nothings_orm::entity::NOrmEntity::pk_value",
@@ -6990,7 +7111,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/entity.rs",
-      "line": 16
+      "line": 17
     },
     {
       "path": "nothings_orm::entity::NOrmEntity::column_value",
@@ -7006,7 +7127,196 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/entity.rs",
-      "line": 19
+      "line": 20
+    },
+    {
+      "path": "nothings_orm::entity::NOrmPreload",
+      "module": "nothings_orm::entity",
+      "kind": "trait",
+      "name": "NOrmPreload",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub trait NOrmPreload: NOrmEntity",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/entity.rs",
+      "line": 27
+    },
+    {
+      "path": "nothings_orm::entity::NOrmPreload::fill_relation",
+      "module": "nothings_orm::entity",
+      "kind": "fn",
+      "name": "fill_relation",
+      "owner": "NOrmPreload",
+      "visibility": "inherited (trait method)",
+      "signature": "fn fill_relation(&mut self, name: &str, rows: &[NOrmOwnedRow]) -> Result<(), Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "PL2: 由 #[derive(NOrmEntity)] 生成，手写 impl 需自行实现；未知名返回 InvalidInput",
+      "platform": "all",
+      "file": "nothings-orm/src/entity.rs",
+      "line": 29
+    },
+    {
+      "path": "nothings_orm::entity::NOrmPreload::preload_one",
+      "module": "nothings_orm::entity",
+      "kind": "fn",
+      "name": "preload_one",
+      "owner": "NOrmPreload",
+      "visibility": "inherited (trait method)",
+      "signature": "fn preload_one<D: NOrmDriver>(name: &str, entities: &mut [Self], driver: &mut D) -> Result<(), Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "PL4: provided 单层批量入口，封装 apply_preload；一般由宏/递归内部调用",
+      "platform": "all",
+      "file": "nothings-orm/src/entity.rs",
+      "line": 33
+    },
+    {
+      "path": "nothings_orm::entity::NOrmPreload::preload_path",
+      "module": "nothings_orm::entity",
+      "kind": "fn",
+      "name": "preload_path",
+      "owner": "NOrmPreload",
+      "visibility": "inherited (trait method)",
+      "signature": "fn preload_path<D: NOrmDriver>(entities: &mut [Self], path: &[&str], driver: &mut D) -> Result<(), Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "PL4: 点分路径递归入口；派生宏生成多层实现，手写 impl 默认仅单层、多层报 InvalidInput；错误路径实体可能半填充",
+      "platform": "all",
+      "file": "nothings-orm/src/entity.rs",
+      "line": 46
+    },
+    {
+      "path": "nothings_orm::join::NOrmJoinKind",
+      "module": "nothings_orm::join",
+      "kind": "enum",
+      "name": "NOrmJoinKind",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub enum NOrmJoinKind",
+      "cfg": null,
+      "attributes": [
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
+      ],
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/join.rs",
+      "line": 15
+    },
+    {
+      "path": "nothings_orm::join::NOrmSubquery",
+      "module": "nothings_orm::join",
+      "kind": "struct",
+      "name": "NOrmSubquery",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub struct NOrmSubquery",
+      "cfg": null,
+      "attributes": [
+        "#[derive(Clone, Debug)]"
+      ],
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/join.rs",
+      "line": 85
+    },
+    {
+      "path": "nothings_orm::join::NOrmSubquery::new",
+      "module": "nothings_orm::join",
+      "kind": "fn",
+      "name": "new",
+      "owner": "NOrmSubquery",
+      "visibility": "pub",
+      "signature": "pub fn new(sql: impl Into<String>) -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/join.rs",
+      "line": 92
+    },
+    {
+      "path": "nothings_orm::join::NOrmSubquery::with_params",
+      "module": "nothings_orm::join",
+      "kind": "fn",
+      "name": "with_params",
+      "owner": "NOrmSubquery",
+      "visibility": "pub",
+      "signature": "pub fn with_params(sql: impl Into<String>, params: Vec<NOrmValue>) -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/join.rs",
+      "line": 100
+    },
+    {
+      "path": "nothings_orm::join::NOrmFromJoined",
+      "module": "nothings_orm::join",
+      "kind": "trait",
+      "name": "NOrmFromJoined",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub trait NOrmFromJoined: Sized",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/join.rs",
+      "line": 117
+    },
+    {
+      "path": "nothings_orm::join::NOrmFromJoined::from_joined_row",
+      "module": "nothings_orm::join",
+      "kind": "fn",
+      "name": "from_joined_row",
+      "owner": "NOrmFromJoined",
+      "visibility": "inherited (trait method)",
+      "signature": "fn from_joined_row<R: NOrmRow>(row: &R, prefixes: &[&str]) -> Result<Self, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/join.rs",
+      "line": 118
+    },
+    {
+      "path": "nothings_orm::join::impl_from_joined!",
+      "module": "nothings_orm::join",
+      "kind": "macro",
+      "name": "impl_from_joined!",
+      "owner": null,
+      "signature": "macro_rules! impl_from_joined {",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/join.rs",
+      "line": 121
+    },
+    {
+      "path": "nothings_orm::query::NORM_PRELOAD_CHUNK_SIZE",
+      "module": "nothings_orm::query",
+      "kind": "const",
+      "name": "NORM_PRELOAD_CHUNK_SIZE",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub const NORM_PRELOAD_CHUNK_SIZE: usize = 500;",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/query.rs",
+      "line": 28
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder",
@@ -7021,7 +7331,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/query.rs",
-      "line": 26
+      "line": 58
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::r#where",
@@ -7037,7 +7347,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内，非法列名延后到 all()/one()/count() 报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 69
+      "line": 122
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::and_where",
@@ -7053,7 +7363,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内，非法列名延后到终结方法报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 74
+      "line": 127
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::or_where",
@@ -7069,7 +7379,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内；首项调用退化为裸首项；错误延后到终结方法报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 79
+      "line": 132
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::not_where",
@@ -7085,7 +7395,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内，错误延后到终结方法报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 84
+      "line": 137
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::where_op",
@@ -7101,7 +7411,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内；In/NotIn/IsNull/IsNotNull 不接受单值；错误延后报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 90
+      "line": 143
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::or_where_op",
@@ -7117,7 +7427,7 @@
       "note": "ORM1: 同 where_op，连接词为 OR",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 95
+      "line": 148
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::where_condition",
@@ -7133,7 +7443,7 @@
       "note": "ORM1: 条件树叶子的列名必须在 E::COLUMNS 白名单内，错误延后报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 100
+      "line": 153
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::or_where_condition",
@@ -7149,7 +7459,7 @@
       "note": "ORM1: 同 where_condition，连接词为 OR",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 105
+      "line": 158
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::not_where_condition",
@@ -7165,7 +7475,103 @@
       "note": "ORM1: 同 where_condition，整树取反",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 110
+      "line": 163
+    },
+    {
+      "path": "nothings_orm::query::NOrmQueryBuilder::join",
+      "module": "nothings_orm::query",
+      "kind": "fn",
+      "name": "join",
+      "owner": "NOrmQueryBuilder",
+      "visibility": "pub",
+      "signature": "pub fn join<T: NOrmEntity>(&mut self, kind: NOrmJoinKind, on: &[(&str, &str)]) -> &mut Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "JOIN1: ON 列名须为安全标识符且右列按 T::COLUMNS 白名单校验，错误延后到终结方法报 InvalidInput；多 JOIN 链左列只做标识符校验",
+      "platform": "all",
+      "file": "nothings-orm/src/query.rs",
+      "line": 174
+    },
+    {
+      "path": "nothings_orm::query::NOrmQueryBuilder::where_qualified",
+      "module": "nothings_orm::query",
+      "kind": "fn",
+      "name": "where_qualified",
+      "owner": "NOrmQueryBuilder",
+      "visibility": "pub",
+      "signature": "pub fn where_qualified<T: NOrmSchema>(&mut self, alias: &str, column: &str, value: impl NOrmToValue) -> &mut Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "JOIN2: T 列名必须在 T::COLUMNS 白名单内，且 alias 须与已声明 JOIN 的 tn 对应；错误延后报 InvalidInput",
+      "platform": "all",
+      "file": "nothings-orm/src/query.rs",
+      "line": 218
+    },
+    {
+      "path": "nothings_orm::query::NOrmQueryBuilder::where_in_subquery",
+      "module": "nothings_orm::query",
+      "kind": "fn",
+      "name": "where_in_subquery",
+      "owner": "NOrmQueryBuilder",
+      "visibility": "pub",
+      "signature": "pub fn where_in_subquery(&mut self, column: &str, subquery: NOrmSubquery) -> &mut Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "JOIN3: 子查询 SQL 是调用方字面量（禁止拼用户输入），值须走 NOrmSubquery::with_params 参数化",
+      "platform": "all",
+      "file": "nothings-orm/src/query.rs",
+      "line": 231
+    },
+    {
+      "path": "nothings_orm::query::NOrmQueryBuilder::where_not_in_subquery",
+      "module": "nothings_orm::query",
+      "kind": "fn",
+      "name": "where_not_in_subquery",
+      "owner": "NOrmQueryBuilder",
+      "visibility": "pub",
+      "signature": "pub fn where_not_in_subquery(&mut self, column: &str, subquery: NOrmSubquery) -> &mut Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "JOIN3: 同 where_in_subquery",
+      "platform": "all",
+      "file": "nothings-orm/src/query.rs",
+      "line": 236
+    },
+    {
+      "path": "nothings_orm::query::NOrmQueryBuilder::where_exists",
+      "module": "nothings_orm::query",
+      "kind": "fn",
+      "name": "where_exists",
+      "owner": "NOrmQueryBuilder",
+      "visibility": "pub",
+      "signature": "pub fn where_exists(&mut self, subquery: NOrmSubquery) -> &mut Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/query.rs",
+      "line": 241
+    },
+    {
+      "path": "nothings_orm::query::NOrmQueryBuilder::where_not_exists",
+      "module": "nothings_orm::query",
+      "kind": "fn",
+      "name": "where_not_exists",
+      "owner": "NOrmQueryBuilder",
+      "visibility": "pub",
+      "signature": "pub fn where_not_exists(&mut self, subquery: NOrmSubquery) -> &mut Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/query.rs",
+      "line": 246
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::order_by",
@@ -7181,7 +7587,7 @@
       "note": "ORM2: 列名必须在 E::COLUMNS 白名单内",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 114
+      "line": 250
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::limit",
@@ -7197,7 +7603,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 122
+      "line": 258
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::offset",
@@ -7213,7 +7619,23 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 127
+      "line": 263
+    },
+    {
+      "path": "nothings_orm::query::NOrmQueryBuilder::preload",
+      "module": "nothings_orm::query",
+      "kind": "fn",
+      "name": "preload",
+      "owner": "NOrmQueryBuilder",
+      "visibility": "pub",
+      "signature": "pub fn preload(&mut self, name: &'static str) -> &mut Self where E: NOrmPreload",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "PL1: 支持点分路径 books.comments；首段构造期校验（错则延后报 InvalidInput 且零 SQL），后续段执行期逐层校验；重叠路径自动保留最长；每批最多 NORM_PRELOAD_CHUNK_SIZE(500) 键；需 E: NOrmPreload",
+      "platform": "all",
+      "file": "nothings-orm/src/query.rs",
+      "line": 275
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::all",
@@ -7229,7 +7651,23 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 181
+      "line": 391
+    },
+    {
+      "path": "nothings_orm::query::NOrmQueryBuilder::all_with",
+      "module": "nothings_orm::query",
+      "kind": "fn",
+      "name": "all_with",
+      "owner": "NOrmQueryBuilder",
+      "visibility": "pub",
+      "signature": "pub fn all_with<T: NOrmFromJoined>(&mut self) -> Result<Vec<T>, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "JOIN4: 要求至少一条 JOIN，元组须为 1~4 元且元素个数与 JOIN 数+1 一致，否则报 InvalidInput",
+      "platform": "all",
+      "file": "nothings-orm/src/query.rs",
+      "line": 419
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::one",
@@ -7245,7 +7683,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 188
+      "line": 439
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::count",
@@ -7261,7 +7699,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 198
+      "line": 449
     },
     {
       "path": "nothings_orm::query::NOrmValue::to_i64",
@@ -7277,7 +7715,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 225
+      "line": 632
     },
     {
       "path": "nothings_orm::repository::NOrmRepository",
@@ -7423,6 +7861,22 @@
       "line": 120
     },
     {
+      "path": "nothings_orm::repository::NOrmRepository::load_relation",
+      "module": "nothings_orm::repository",
+      "kind": "fn",
+      "name": "load_relation",
+      "owner": "NOrmRepository",
+      "visibility": "pub",
+      "signature": "pub fn load_relation<E: NOrmPreload>(&mut self, entity: &mut E, name: &str) -> Result<(), Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "PL5: 单实体原地填充，支持点分路径；逐实体调用产生 N+1，批量请用 query().preload(..)",
+      "platform": "all",
+      "file": "nothings-orm/src/repository.rs",
+      "line": 128
+    },
+    {
       "path": "nothings_orm::repository::NOrmRepository::transaction",
       "module": "nothings_orm::repository",
       "kind": "fn",
@@ -7436,7 +7890,7 @@
       "note": "ORM3: 只支持单层事务，嵌套返回 InvalidInput；Err 路径自动 rollback",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 125
+      "line": 144
     },
     {
       "path": "nothings_orm::row::NOrmRow",
@@ -7615,6 +8069,85 @@
       "line": 52
     },
     {
+      "path": "nothings_orm::row::NOrmPrefixedRow",
+      "module": "nothings_orm::row",
+      "kind": "struct",
+      "name": "NOrmPrefixedRow",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub struct NOrmPrefixedRow<'a, R: NOrmRow>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/row.rs",
+      "line": 66
+    },
+    {
+      "path": "nothings_orm::row::NOrmPrefixedRow::new",
+      "module": "nothings_orm::row",
+      "kind": "fn",
+      "name": "new",
+      "owner": "NOrmPrefixedRow",
+      "visibility": "pub",
+      "signature": "pub fn new(inner: &'a R, prefix: &'a str) -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/row.rs",
+      "line": 72
+    },
+    {
+      "path": "nothings_orm::row::NOrmPrefixedRow::column_count",
+      "module": "nothings_orm::row",
+      "kind": "fn",
+      "name": "column_count",
+      "owner": "NOrmPrefixedRow",
+      "visibility": "inherited (trait method)",
+      "signature": "fn column_count(&self) -> usize",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/row.rs",
+      "line": 78
+    },
+    {
+      "path": "nothings_orm::row::NOrmPrefixedRow::column_name",
+      "module": "nothings_orm::row",
+      "kind": "fn",
+      "name": "column_name",
+      "owner": "NOrmPrefixedRow",
+      "visibility": "inherited (trait method)",
+      "signature": "fn column_name(&self, index: usize) -> &str",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/row.rs",
+      "line": 82
+    },
+    {
+      "path": "nothings_orm::row::NOrmPrefixedRow::value",
+      "module": "nothings_orm::row",
+      "kind": "fn",
+      "name": "value",
+      "owner": "NOrmPrefixedRow",
+      "visibility": "inherited (trait method)",
+      "signature": "fn value(&self, index: usize) -> Result<NOrmValue, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm/src/row.rs",
+      "line": 87
+    },
+    {
       "path": "nothings_orm::schema::NOrmColumn",
       "module": "nothings_orm::schema",
       "kind": "struct",
@@ -7707,6 +8240,115 @@
       "line": 12
     },
     {
+      "path": "nothings_orm::schema::NOrmRelationKind",
+      "module": "nothings_orm::schema",
+      "kind": "enum",
+      "name": "NOrmRelationKind",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub enum NOrmRelationKind",
+      "cfg": null,
+      "attributes": [
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
+      ],
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/schema.rs",
+      "line": 17
+    },
+    {
+      "path": "nothings_orm::schema::NOrmRelation",
+      "module": "nothings_orm::schema",
+      "kind": "struct",
+      "name": "NOrmRelation",
+      "owner": null,
+      "visibility": "pub",
+      "signature": "pub struct NOrmRelation",
+      "cfg": null,
+      "attributes": [
+        "#[derive(Clone, Copy, Debug)]"
+      ],
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/schema.rs",
+      "line": 29
+    },
+    {
+      "path": "nothings_orm::schema::NOrmRelation::name",
+      "module": "nothings_orm::schema",
+      "kind": "field",
+      "name": "name",
+      "owner": "NOrmRelation",
+      "visibility": "pub",
+      "signature": "pub name: &'static str",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/schema.rs",
+      "line": 31
+    },
+    {
+      "path": "nothings_orm::schema::NOrmRelation::kind",
+      "module": "nothings_orm::schema",
+      "kind": "field",
+      "name": "kind",
+      "owner": "NOrmRelation",
+      "visibility": "pub",
+      "signature": "pub kind: NOrmRelationKind",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/schema.rs",
+      "line": 32
+    },
+    {
+      "path": "nothings_orm::schema::NOrmRelation::foreign_key",
+      "module": "nothings_orm::schema",
+      "kind": "field",
+      "name": "foreign_key",
+      "owner": "NOrmRelation",
+      "visibility": "pub",
+      "signature": "pub foreign_key: &'static str",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/schema.rs",
+      "line": 34
+    },
+    {
+      "path": "nothings_orm::schema::NOrmRelation::target_table",
+      "module": "nothings_orm::schema",
+      "kind": "field",
+      "name": "target_table",
+      "owner": "NOrmRelation",
+      "visibility": "pub",
+      "signature": "pub target_table: &'static str",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/schema.rs",
+      "line": 36
+    },
+    {
+      "path": "nothings_orm::schema::NOrmRelation::target_columns",
+      "module": "nothings_orm::schema",
+      "kind": "field",
+      "name": "target_columns",
+      "owner": "NOrmRelation",
+      "visibility": "pub",
+      "signature": "pub target_columns: &'static [NOrmColumn]",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/schema.rs",
+      "line": 38
+    },
+    {
       "path": "nothings_orm::schema::NOrmSchema",
       "module": "nothings_orm::schema",
       "kind": "trait",
@@ -7719,7 +8361,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/schema.rs",
-      "line": 16
+      "line": 42
     },
     {
       "path": "nothings_orm::schema::NOrmSchema::pk",
@@ -7735,7 +8377,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/schema.rs",
-      "line": 20
+      "line": 48
     },
     {
       "path": "nothings_orm::schema::validate_column",
@@ -7751,7 +8393,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/schema.rs",
-      "line": 27
+      "line": 55
     },
     {
       "path": "nothings_orm::value::NOrmUtcOffset",
@@ -8728,23 +9370,22 @@
   ],
   "exports": [],
   "counts": {
-    "modules": 57,
-    "items": 515,
+    "modules": 58,
+    "items": 555,
     "by_kind": {
-      "const": 18,
-      "enum": 6,
-      "field": 34,
-      "fn": 407,
-      "macro": 3,
-      "struct": 27,
-      "trait": 15,
+      "const": 19,
+      "enum": 9,
+      "field": 39,
+      "fn": 431,
+      "macro": 4,
+      "struct": 30,
+      "trait": 18,
       "type": 1,
       "use": 4
     },
     "by_status": {
-      "broken": 9,
-      "limited": 47,
-      "ok": 380,
+      "limited": 55,
+      "ok": 421,
       "unimplemented": 79
     },
     "exports": 0

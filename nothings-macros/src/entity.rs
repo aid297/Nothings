@@ -24,6 +24,19 @@ use syn::{
     parse_quote, Data, DeriveInput, Expr, ExprLit, Fields, Lit, Meta, Token, Type,
 };
 
+#[derive(Clone, Copy)]
+enum RelKind {
+    HasMany,
+    BelongsTo,
+}
+
+struct RelationInfo {
+    name: String,
+    kind: RelKind,
+    target: Type,
+    foreign_key: String,
+}
+
 struct FieldInfo {
     ident: syn::Ident,
     ty: Type,
@@ -31,6 +44,19 @@ struct FieldInfo {
     primary_key: bool,
     nullable: bool,
     is_option: bool,
+    relation: Option<RelationInfo>,
+}
+
+/// 从 Meta::NameValue 里取字符串字面量。
+fn lit_str(value: &Expr, what: &str) -> syn::Result<String> {
+    if let Expr::Lit(ExprLit {
+        lit: Lit::Str(s), ..
+    }) = value
+    {
+        Ok(s.value())
+    } else {
+        Err(syn::Error::new_spanned(value, format!("NOrmEntity: {what} 必须是字符串字面量")))
+    }
 }
 
 fn is_option(ty: &Type) -> bool {
@@ -90,6 +116,12 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                     let mut column = field_name.clone();
                     let mut primary_key = false;
                     let mut nullable = false;
+                    let mut column_explicit = false;
+
+                    let mut rel_kind: Option<RelKind> = None;
+                    let mut rel_name: Option<String> = None;
+                    let mut rel_target: Option<Type> = None;
+                    let mut rel_fk: Option<String> = None;
 
                     for attr in &field.attrs {
                         if !attr.path().is_ident("entity") {
@@ -106,17 +138,30 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                                     nullable = true;
                                 }
                                 Meta::NameValue(nv) if nv.path.is_ident("column") => {
-                                    if let Expr::Lit(ExprLit {
-                                        lit: Lit::Str(s), ..
-                                    }) = nv.value
-                                    {
-                                        column = s.value();
+                                    column = lit_str(&nv.value, "column")?;
+                                    column_explicit = true;
+                                }
+                                Meta::NameValue(nv)
+                                    if nv.path.is_ident("has_many")
+                                        || nv.path.is_ident("belongs_to") =>
+                                {
+                                    rel_kind = Some(if nv.path.is_ident("has_many") {
+                                        RelKind::HasMany
                                     } else {
-                                        return Err(syn::Error::new_spanned(
-                                            nv.value,
-                                            "NOrmEntity: column 必须是字符串字面量",
-                                        ));
-                                    }
+                                        RelKind::BelongsTo
+                                    });
+                                    rel_name = Some(lit_str(&nv.value, "关联名")?);
+                                }
+                                Meta::NameValue(nv) if nv.path.is_ident("target") => {
+                                    let s = lit_str(&nv.value, "target")?;
+                                    rel_target = Some(
+                                        syn::parse_str::<Type>(&s).map_err(|e| {
+                                            syn::Error::new_spanned(&nv.value, e.to_string())
+                                        })?,
+                                    );
+                                }
+                                Meta::NameValue(nv) if nv.path.is_ident("foreign_key") => {
+                                    rel_fk = Some(lit_str(&nv.value, "foreign_key")?);
                                 }
                                 other => {
                                     return Err(syn::Error::new_spanned(
@@ -128,8 +173,39 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                         }
                     }
 
+                    let relation = if let Some(kind) = rel_kind {
+                        let (Some(name), Some(target), Some(foreign_key)) =
+                            (rel_name, rel_target, rel_fk)
+                        else {
+                            return Err(syn::Error::new_spanned(
+                                field,
+                                "NOrmEntity: has_many/belongs_to 必须同时提供 target 与 foreign_key",
+                            ));
+                        };
+                        if primary_key || nullable || column_explicit {
+                            return Err(syn::Error::new_spanned(
+                                field,
+                                "NOrmEntity: 关联字段不能再标注 primary_key / nullable / column",
+                            ));
+                        }
+                        Some(RelationInfo {
+                            name,
+                            kind,
+                            target,
+                            foreign_key,
+                        })
+                    } else {
+                        if rel_target.is_some() || rel_fk.is_some() {
+                            return Err(syn::Error::new_spanned(
+                                field,
+                                "NOrmEntity: target/foreign_key 需配合 has_many/belongs_to 使用",
+                            ));
+                        }
+                        None
+                    };
+
                     let is_option = is_option(&field.ty);
-                    if is_option {
+                    if is_option && relation.is_none() {
                         nullable = true;
                     }
                     Ok(FieldInfo {
@@ -139,6 +215,7 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                         primary_key,
                         nullable,
                         is_option,
+                        relation,
                     })
                 })
                 .collect::<syn::Result<Vec<_>>>()?,
@@ -178,7 +255,7 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
 
     // 为泛型结构体补 trait bound；非泛型时 where 子句保持原样。
     let mut generics = input.generics.clone();
-    for field in &fields {
+    for field in fields.iter().filter(|f| f.relation.is_none()) {
         let ty = &field.ty;
         generics.make_where_clause().predicates.push(parse_quote!(
             #ty: ::nothings_orm::value::NOrmHasSqlType
@@ -188,8 +265,8 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
     }
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    // NOrmSchema::COLUMNS
-    let column_literals = fields.iter().map(|f| {
+    // NOrmSchema::COLUMNS（关联字段不占列）
+    let column_literals = fields.iter().filter(|f| f.relation.is_none()).map(|f| {
         let field_name = f.ident.to_string();
         let column = &f.column;
         let ty = &f.ty;
@@ -207,7 +284,9 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
     });
 
     // from_row：按列名在 NOrmRow 中查找索引，再走 NOrmFromValue 解码。
-    let lookups = fields.iter().enumerate().map(|(i, f)| {
+    // 关联字段不查列；只对标量字段 enumerate，避免索引错位。
+    let scalar_fields: Vec<&FieldInfo> = fields.iter().filter(|f| f.relation.is_none()).collect();
+    let lookups = scalar_fields.iter().enumerate().map(|(i, f)| {
         let idx_var = syn::Ident::new(&format!("__orm_idx_{}", i), f.ident.span());
         let val_var = syn::Ident::new(&format!("__orm_val_{}", i), f.ident.span());
         let column = &f.column;
@@ -230,17 +309,32 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
         }
     });
 
-    let field_inits = fields.iter().enumerate().map(|(i, f)| {
+    let scalar_indices: std::collections::HashMap<String, usize> = scalar_fields
+        .iter()
+        .enumerate()
+        .map(|(i, f)| (f.ident.to_string(), i))
+        .collect();
+    let field_inits = fields.iter().map(|f| {
         let ident = &f.ident;
-        let val_var = syn::Ident::new(&format!("__orm_val_{}", i), f.ident.span());
-        let ty = &f.ty;
-        quote! {
-            #ident: <#ty as ::nothings_orm::value::NOrmFromValue>::from_value(&#val_var)?
+        if let Some(rel) = &f.relation {
+            // 关联字段由通用层在 all() 后填充，这里给空初值。
+            let init = match rel.kind {
+                RelKind::HasMany => quote!(::std::vec::Vec::new()),
+                RelKind::BelongsTo => quote!(::std::option::Option::None),
+            };
+            quote!(#ident: #init)
+        } else {
+            let i = scalar_indices[&ident.to_string()];
+            let val_var = syn::Ident::new(&format!("__orm_val_{}", i), f.ident.span());
+            let ty = &f.ty;
+            quote! {
+                #ident: <#ty as ::nothings_orm::value::NOrmFromValue>::from_value(&#val_var)?
+            }
         }
     });
 
     let pk_ident = &fields[pk_index].ident;
-    let column_value_arms = fields.iter().map(|f| {
+    let column_value_arms = fields.iter().filter(|f| f.relation.is_none()).map(|f| {
         let column = &f.column;
         let ident = &f.ident;
         quote! {
@@ -251,11 +345,134 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
     });
     let table_for_error = &table;
 
+    // NOrmSchema::RELATIONS：每项展开目标实体的表元信息。
+    let relation_literals = fields
+        .iter()
+        .filter_map(|f| f.relation.as_ref().map(|r| (&f.ident, r)))
+        .map(|(_, rel)| {
+            let rel_name = &rel.name;
+            let fk = &rel.foreign_key;
+            let target = &rel.target;
+            let kind = match rel.kind {
+                RelKind::HasMany => quote!(HasMany),
+                RelKind::BelongsTo => quote!(BelongsTo),
+            };
+            quote! {
+                ::nothings_orm::schema::NOrmRelation {
+                    name: #rel_name,
+                    kind: ::nothings_orm::schema::NOrmRelationKind::#kind,
+                    foreign_key: #fk,
+                    target_table: <#target as ::nothings_orm::schema::NOrmSchema>::TABLE,
+                    target_columns: <#target as ::nothings_orm::schema::NOrmSchema>::COLUMNS,
+                }
+            }
+        });
+
+    // NOrmPreload::fill_relation：按关系名 match，分支里用宏展开期捕获的具体类型解码。
+    let fill_arms = fields
+        .iter()
+        .filter_map(|f| f.relation.as_ref().map(|r| (&f.ident, r)))
+        .map(|(ident, rel)| {
+            let rel_name = &rel.name;
+            let target = &rel.target;
+            match rel.kind {
+                RelKind::HasMany => quote! {
+                    #rel_name => {
+                        let mut __preloaded = ::std::vec::Vec::with_capacity(rows.len());
+                        for __row in rows {
+                            __preloaded.push(
+                                <#target as ::nothings_orm::entity::NOrmEntity>::from_row(__row)?
+                            );
+                        }
+                        self.#ident = __preloaded;
+                        ::std::result::Result::Ok(())
+                    }
+                },
+                RelKind::BelongsTo => quote! {
+                    #rel_name => {
+                        self.#ident = match rows.first() {
+                            ::std::option::Option::Some(__row) =>
+                                ::std::option::Option::Some(
+                                    <#target as ::nothings_orm::entity::NOrmEntity>::from_row(__row)?
+                                ),
+                            ::std::option::Option::None => ::std::option::Option::None,
+                        };
+                        ::std::result::Result::Ok(())
+                    }
+                },
+            }
+        });
+
+    // NOrmPreload::preload_path：点分路径逐层递归。目标类型 #target 在宏展开期捕获，
+    // 每一层先把同层子实体收集成连续切片批量递归，再按原长度回填，保持批量语义而非 N+1。
+    let path_arms = fields
+        .iter()
+        .filter_map(|f| f.relation.as_ref().map(|r| (&f.ident, r)))
+        .map(|(ident, rel)| {
+            let rel_name = &rel.name;
+            let target = &rel.target;
+            let collect_backfill = match rel.kind {
+                RelKind::HasMany => quote! {
+                    let mut __all: ::std::vec::Vec<#target> = ::std::vec::Vec::new();
+                    let mut __lens: ::std::vec::Vec<::std::primitive::usize> =
+                        ::std::vec::Vec::with_capacity(entities.len());
+                    for __e in entities.iter_mut() {
+                        __lens.push(__e.#ident.len());
+                        __all.append(&mut __e.#ident);
+                    }
+                    <#target as ::nothings_orm::entity::NOrmPreload>::preload_path(
+                        &mut __all, &__path[1..], &mut *driver)?;
+                    let mut __it = __all.into_iter();
+                    for (__e, __n) in entities.iter_mut().zip(__lens) {
+                        __e.#ident = __it.by_ref().take(__n).collect();
+                    }
+                },
+                RelKind::BelongsTo => quote! {
+                    let mut __all: ::std::vec::Vec<#target> = ::std::vec::Vec::new();
+                    let mut __present: ::std::vec::Vec<::std::primitive::bool> =
+                        ::std::vec::Vec::with_capacity(entities.len());
+                    for __e in entities.iter_mut() {
+                        match ::std::option::Option::take(&mut __e.#ident) {
+                            ::std::option::Option::Some(__child) => {
+                                __present.push(true);
+                                __all.push(__child);
+                            }
+                            ::std::option::Option::None => __present.push(false),
+                        }
+                    }
+                    <#target as ::nothings_orm::entity::NOrmPreload>::preload_path(
+                        &mut __all, &__path[1..], &mut *driver)?;
+                    let mut __it = __all.into_iter();
+                    for (__e, __was) in entities.iter_mut().zip(__present) {
+                        __e.#ident = if __was {
+                            __it.next()
+                        } else {
+                            ::std::option::Option::None
+                        };
+                    }
+                },
+            };
+            quote! {
+                #rel_name => {
+                    <Self as ::nothings_orm::entity::NOrmPreload>::preload_one(
+                        __head, entities, &mut *driver)?;
+                    if __path.len() == 1 {
+                        return ::std::result::Result::Ok(());
+                    }
+                    #collect_backfill
+                    ::std::result::Result::Ok(())
+                }
+            }
+        });
+
     Ok(quote! {
         impl #impl_generics ::nothings_orm::schema::NOrmSchema for #name #ty_generics #where_clause {
             const TABLE: &'static str = #table;
             const COLUMNS: &'static [::nothings_orm::schema::NOrmColumn] = &[
                 #(#column_literals),*
+            ];
+            const RELATIONS: &'static [::nothings_orm::schema::NOrmRelation] = &[
+                #(#relation_literals),*
             ];
             fn pk() -> &'static ::nothings_orm::schema::NOrmColumn {
                 &Self::COLUMNS[#pk_index]
@@ -283,6 +500,39 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                     _ => ::std::result::Result::Err(::std::io::Error::new(
                         ::std::io::ErrorKind::InvalidInput,
                         ::std::format!("NOrmEntity {}: 未知列 {}", #table_for_error, __orm_name),
+                    )),
+                }
+            }
+        }
+
+        impl #impl_generics ::nothings_orm::entity::NOrmPreload for #name #ty_generics #where_clause {
+            fn fill_relation(
+                &mut self,
+                __name: &str,
+                rows: &[::nothings_orm::row::NOrmOwnedRow],
+            ) -> ::std::result::Result<(), ::std::io::Error> {
+                match __name {
+                    #(#fill_arms)*
+                    _ => ::std::result::Result::Err(::std::io::Error::new(
+                        ::std::io::ErrorKind::InvalidInput,
+                        ::std::format!("NOrmEntity {}: 未知关联 {}", #table_for_error, __name),
+                    )),
+                }
+            }
+
+            fn preload_path<D: ::nothings_orm::driver::NOrmDriver>(
+                entities: &mut [Self],
+                __path: &[&str],
+                driver: &mut D,
+            ) -> ::std::result::Result<(), ::std::io::Error> {
+                let ::std::option::Option::Some(&__head) = __path.first() else {
+                    return ::std::result::Result::Ok(());
+                };
+                match __head {
+                    #(#path_arms)*
+                    _ => ::std::result::Result::Err(::std::io::Error::new(
+                        ::std::io::ErrorKind::InvalidInput,
+                        ::std::format!("NOrmEntity {}: 未知关联 {}", #table_for_error, __head),
                     )),
                 }
             }

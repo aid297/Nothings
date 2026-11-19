@@ -59,6 +59,36 @@ impl NOrmRow for NOrmOwnedRow {
     }
 }
 
+/// 别名前缀行投影：把 `t0_id` 这样的列名呈现为 `id`，其余表的列原样保留。
+///
+/// JOIN 查询的列都带 `tN_` 前缀，而派生宏生成的 `from_row` 按裸列名精确匹配。
+/// 用本投影包一层宽行，就能让某个实体的 `from_row` 只看见自己的列，**无需改派生宏**。
+pub struct NOrmPrefixedRow<'a, R: NOrmRow> {
+    inner: &'a R,
+    prefix: &'a str,
+}
+
+impl<'a, R: NOrmRow> NOrmPrefixedRow<'a, R> {
+    pub fn new(inner: &'a R, prefix: &'a str) -> Self {
+        Self { inner, prefix }
+    }
+}
+
+impl<R: NOrmRow> NOrmRow for NOrmPrefixedRow<'_, R> {
+    fn column_count(&self) -> usize {
+        self.inner.column_count()
+    }
+
+    fn column_name(&self, index: usize) -> &str {
+        let name = self.inner.column_name(index);
+        name.strip_prefix(self.prefix).unwrap_or(name)
+    }
+
+    fn value(&self, index: usize) -> Result<NOrmValue, Error> {
+        self.inner.value(index)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

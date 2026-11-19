@@ -1,6 +1,6 @@
 # Lz4 — LZ4 压缩/解压
 
-`Lz4` 提供基于 LZ4 算法的高效压缩/解压功能，支持内存数据和文件压缩，输出标准 LZ4 frame 格式（与 liblz4 兼容）。基于纯 Rust 实现（lz4_flex）。
+`Lz4` 提供基于 LZ4 算法的高效压缩/解压功能，支持内存数据和文件压缩，输出标准 LZ4 frame 格式（与 liblz4 兼容）。压缩端基于 liblz4 HC（lz4 crate，C 源码内置于依赖），解压端基于 lz4_flex，两者 frame 互通。
 
 ## 快速开始
 
@@ -14,7 +14,7 @@ let compressed = Lz4::compress(data).unwrap();
 let decompressed = Lz4::decompress(&compressed).unwrap();
 assert_eq!(decompressed, data);
 
-// 指定压缩级别（参数保留，当前不影响结果）
+// 指定压缩级别（1-16 生效，HC 越高压缩率越好）
 let compressed = Lz4::compress_with_level(data, 9).unwrap();
 
 // 文件压缩/解压
@@ -36,7 +36,7 @@ println!("压缩率: {:.2}%", ratio * 100.0);
 | 方法 | 说明 |
 |------|------|
 | `compress(data)` | 压缩数据（默认级别 1），返回 `Result<Vec<u8>, Error>` |
-| `compress_with_level(data, level)` | 指定压缩级别（参数保留，当前不影响结果），返回 `Result<Vec<u8>, Error>` |
+| `compress_with_level(data, level)` | 指定压缩级别（1-16 有效，>16 钳为 16），返回 `Result<Vec<u8>, Error>` |
 | `decompress(data)` | 解压数据，返回 `Result<Vec<u8>, Error>` |
 | `compression_ratio(original, compressed)` | 计算压缩率（压缩后大小 / 原始大小），返回 `f64` |
 
@@ -50,7 +50,11 @@ println!("压缩率: {:.2}%", ratio * 100.0);
 
 ### 压缩级别说明
 
-当前基于 lz4_flex（纯 Rust 实现），仅实现快速压缩模式：
+压缩端基于 liblz4 HC（`lz4` crate），级别语义：
 
-- `compress_with_level` / `with_level` 的级别参数（1-16）保留用于 API 兼容，不影响压缩结果
-- 如需更高压缩率，建议使用 Zstd 或 Zlib 模块
+- `0`：快速模式（默认 `compress()` 用级别 1，即 HC 最低档）
+- `1-16`：HC（高压缩）模式，级别越高压缩率越好但越慢
+- `>16`：钳制为 16，不会报错
+
+解压端保持 lz4_flex 的 `FrameDecoder`，可读取 liblz4 HC 产出的标准 frame；反之亦可。
+实测（局部重复、整体不规则的数据）级别 1 输出 5440 字节、级别 16 输出 2576 字节。

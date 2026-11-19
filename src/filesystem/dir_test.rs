@@ -468,3 +468,30 @@ fn test_set_mode_non_existing() {
     let result = dir.set_mode(0o755);
     assert!(result.is_err());
 }
+// ─────────────────────────────────────────────
+// join（A5 回归：PathBuf::join 返回值被丢弃）
+// ─────────────────────────────────────────────
+
+#[test]
+fn test_join_actually_appends_path() {
+    let base = format!("/tmp/nothings_join_{}", std::process::id());
+    let target = format!("{base}/a/b");
+    let _ = fs::create_dir_all(&target);
+
+    let dir = Dir::new(&base);
+    let joined = dir.join(&vec!["a", "b"]);
+    assert_eq!(joined.full_path, target);
+    assert!(joined.err.is_none(), "目标目录存在时不应有错误");
+    assert!(joined.exist);
+
+    cleanup(&base);
+}
+
+#[test]
+fn test_join_empty_preserves_path() {
+    let base = create_test_dir("join_empty");
+    let dir = Dir::new(&base);
+    let joined = dir.join(&vec![]);
+    assert_eq!(joined.full_path, base);
+    cleanup(&base);
+}

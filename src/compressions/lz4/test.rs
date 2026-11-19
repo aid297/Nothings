@@ -74,11 +74,51 @@ fn test_compress_with_level_16() {
 
 #[test]
 fn test_higher_level_better_compression() {
-    let data = "the quick brown fox jumps over the lazy dog".repeat(500);
+    // 完全规则的数据在任何 HC 级别下都已最优，必须用局部重复、整体不可预测的数据
+    let data = pseudo_random_words(2000);
     let compressed_l1 = Lz4::compress_with_level(data.as_bytes(), 1).unwrap();
     let compressed_l16 = Lz4::compress_with_level(data.as_bytes(), 16).unwrap();
-    // 高级别压缩结果应该 <= 低级别
-    assert!(compressed_l16.len() <= compressed_l1.len());
+    // HC 级别必须真正影响输出：体积显著下降，且字节序列不同
+    assert!(
+        compressed_l16.len() < compressed_l1.len(),
+        "level 16 应比 level 1 更小（实测 {} vs {}）",
+        compressed_l16.len(),
+        compressed_l1.len()
+    );
+    assert_ne!(
+        compressed_l16, compressed_l1,
+        "level 1 与 level 16 的压缩输出不应相同"
+    );
+}
+
+/// 用线性同余伪随机选取词汇，生成「局部有重复、整体不规则」的测试数据（确定性）
+fn pseudo_random_words(n: usize) -> String {
+    let words = [
+        "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india",
+        "juliet",
+    ];
+    let mut seed = 12345678u64;
+    let mut out = String::new();
+    for _ in 0..n {
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        out.push_str(words[(seed >> 33) as usize % words.len()]);
+        out.push(' ');
+    }
+    out
+}
+
+#[test]
+fn test_compress_with_level_produces_standard_frame() {
+    // liblz4 HC 输出必须是标准 LZ4 frame，与 lz4_flex 解码器兼容
+    let data = b"standard frame check with HC encoder".repeat(8);
+    for level in [1u32, 9, 16, 100] {
+        let compressed = Lz4::compress_with_level(&data, level).unwrap();
+        assert_eq!(&compressed[..4], &[0x04, 0x22, 0x4d, 0x18]);
+        // >16 钳制行为：不 panic 且可解压
+        assert_eq!(Lz4::decompress(&compressed).unwrap(), data);
+    }
 }
 
 // ─────────────────────────────────────────────

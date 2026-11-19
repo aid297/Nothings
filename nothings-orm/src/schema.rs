@@ -12,10 +12,38 @@ pub struct NOrmColumn {
     pub primary_key: bool,
 }
 
+/// 关联种类。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NOrmRelationKind {
+    /// 一对多：本实体主键 ↔ 目标表外键，填充 `Vec<T>`。
+    HasMany,
+    /// 多对一：本实体外键 ↔ 目标表主键，填充 `Option<T>`。
+    BelongsTo,
+}
+
+/// 一条关联的静态元信息，由 `#[derive(NOrmEntity)]` 生成。
+///
+/// 只含 `'static` 纯数据（无函数指针），因此可作为 `NOrmSchema::RELATIONS`
+/// 关联常量。目标实体类型在宏展开期捕获，这里只存它的表元信息。
+#[derive(Clone, Copy, Debug)]
+pub struct NOrmRelation {
+    /// `preload(name)` 使用的关系名。
+    pub name: &'static str,
+    pub kind: NOrmRelationKind,
+    /// 外键 DB 列名：HasMany 时在目标表上，BelongsTo 时在本表上。
+    pub foreign_key: &'static str,
+    /// 目标表名 `<T as NOrmSchema>::TABLE`。
+    pub target_table: &'static str,
+    /// 目标全列 `<T as NOrmSchema>::COLUMNS`，用于 SELECT 与列名白名单。
+    pub target_columns: &'static [NOrmColumn],
+}
+
 /// 实体到表的静态映射。
 pub trait NOrmSchema {
     const TABLE: &'static str;
     const COLUMNS: &'static [NOrmColumn];
+    /// 关联元信息。带默认空值，未声明关联的实体零改动。
+    const RELATIONS: &'static [NOrmRelation] = &[];
 
     fn pk() -> &'static NOrmColumn;
 }

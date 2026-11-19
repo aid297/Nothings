@@ -359,25 +359,27 @@ fn test_not_in_values_false() {
 #[test]
 fn test_every_all_match() {
     let map = AnyMap::with_iter(vec![("attr", 1), ("b", 2), ("c", 3)]);
-    // every returns &Self when all return true (no short-circuit)
-    let result = map.every(|_k, _v| true);
-    let _ = result;
+    assert!(map.every(|_k, _v| true));
+    assert!(!map.every(|k, _v| *k != "c"));
 }
 
 #[test]
 fn test_every_short_circuit() {
+    use std::cell::Cell;
     let map = AnyMap::with_iter(vec![("attr", 1), ("b", 2), ("c", 3)]);
-    // Should short-circuit on first false, but returns &Self either way
-    let result = map.every(|k, _v| *k != "attr");
-    // Just verify it returns without panic
-    let _ = result;
+    let calls = Cell::new(0);
+    let result = map.every(|k, _v| {
+        calls.set(calls.get() + 1);
+        *k != "attr"
+    });
+    assert!(!result);
+    assert_eq!(calls.get(), 1, "首个 false 必须短路");
 }
 
 #[test]
 fn test_every_empty() {
     let map: AnyMap<&str, i32> = AnyMap::new();
-    let result = map.every(|_, _| false);
-    let _ = result;
+    assert!(map.every(|_, _| false));
 }
 
 // ─────────────────────────────────────────────
@@ -433,4 +435,41 @@ fn test_to_string_empty() {
     let map: AnyMap<&str, i32> = AnyMap::new();
     let s = map.to_string(None);
     assert_eq!(s, "");
+}
+
+// ─────────────────────────────────────────────
+// A2 回归：依赖 remove_by_indexes 的四个方法
+// ─────────────────────────────────────────────
+
+#[test]
+fn test_filter_actually_filters() {
+    let mut map = AnyMap::with_iter(vec![("a", 1), ("b", 2), ("c", 3)]);
+    map.filter(|_, v| *v >= 2);
+    assert_eq!(map.to_entries(), vec![("b", 2), ("c", 3)]);
+}
+
+#[test]
+fn test_remove_by_keys_actually_removes() {
+    let mut map = AnyMap::with_iter(vec![("a", 1), ("b", 2), ("c", 3)]);
+    map.remove_by_keys(&vec!["a", "c"]);
+    assert_eq!(map.to_entries(), vec![("b", 2)]);
+}
+
+#[test]
+fn test_remove_by_values_actually_removes() {
+    let mut map = AnyMap::with_iter(vec![("a", 1), ("b", 2), ("c", 3)]);
+    map.remove_by_values(&vec![1, 3]);
+    assert_eq!(map.to_entries(), vec![("b", 2)]);
+}
+
+#[test]
+fn test_remove_empty_actually_removes_and_chains() {
+    let mut map = AnyMap::with_iter(vec![("a", 0), ("b", 2), ("c", 0)]);
+    map.remove_empty();
+    assert_eq!(map.to_entries(), vec![("b", 2)]);
+
+    // 返回 &mut Self，可继续链式调用其它 &mut Self 方法
+    let mut map = AnyMap::with_iter(vec![("a", 0), ("b", 2), ("c", 0)]);
+    let len = map.remove_empty().len();
+    assert_eq!(len, 1);
 }

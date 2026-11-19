@@ -69,46 +69,31 @@ println!("{}", map.to_string(Some(", ")));
 |------|------|------|
 | `remove_by_key(&mut self, key: &K)` | 可用 | 按 key 移除；key 不存在时静默返回 |
 | `remove_by_index(&mut self, index: usize)` | 可用 | 按索引移除；越界安全，静默返回 |
-| `remove_by_keys(&mut self, keys: &Vec<K>)` | ⚠️ 当前无效 | 见下方「已知问题」 |
-| `remove_by_values(&mut self, values: &Vec<V>)` | ⚠️ 当前无效 | 见下方「已知问题」 |
-| `remove_empty(&mut self)` | ⚠️ 当前无效 | 见下方「已知问题」。返回类型为 `&Self` |
-| `filter(&mut self, f: impl Fn(&K, &V) -> bool)` | ⚠️ 当前无效 | 见下方「已知问题」 |
+| `remove_by_keys(&mut self, keys: &Vec<K>)` | 可用 | 按 key 批量移除，pair 同步删除 |
+| `remove_by_values(&mut self, values: &Vec<V>)` | 可用 | 按 value 批量移除，pair 同步删除 |
+| `remove_empty(&mut self)` | 可用 | 移除默认值元素；返回 `&mut Self` 可链式 |
+| `filter(&mut self, f: impl Fn(&K, &V) -> bool)` | 可用 | 保留谓词为 true 的键值对 |
 
 ### 遍历与转换
 
 | 方法 | 签名 | 说明 | 约束 |
 |------|------|------|------|
 | `each(&mut self, func)` | `impl Fn(&K, &V) -> V` `-> &mut Self` | 对每个键值对计算新值并原地更新 values | `K: Clone`, `V: Clone` |
-| `every(&self, func)` | `impl Fn(&K, &V) -> bool` `-> &Self` | ⚠️ **不返回 `bool`**，见下方「已知问题」 | `K: Clone`, `V: Clone` |
+| `every(&self, func)` | `impl Fn(&K, &V) -> bool` `-> bool` | 全部满足返回 true，首个 false 短路 | `K: Clone`, `V: Clone` |
 | `to_string(&self, sep)` | `Option<&str> -> String` | 格式为 `key: value`，用 `sep` 连接（默认 `,`） | `K: Display + Clone`, `V: Display + Clone` |
 
-## 已知问题
+## 批量删除与判断
 
-以下方法当前**不会修改数据**，根因是 `AnySlice::remove_by_indexes` 中使用了惰性迭代器但未消费：
-
-```rust
-// src/any_slices/app.rs:347
-pub fn remove_by_indexes(&mut self, indexes: &Vec<usize>) -> &mut Self {
-    let _ = indexes.iter().map(|index| self.data.remove(*index)); // map 是惰性的，立即被丢弃
-    self
-}
-```
-
-受影响的方法：`filter`、`remove_by_keys`、`remove_by_values`、`remove_empty`（全部依赖 `remove_by_indexes`）。调用后长度和内容均不变。
-
-`every` 的实现在匹配与不匹配两条分支上都返回 `&Self`，无法用作谓词判断。
-
-临时替代写法：
+`filter` / `remove_by_keys` / `remove_by_values` / `remove_empty` 通过 `AnySlice::remove_by_indexes` 同步删除 keys 与 values 两条平行切片，保持配对一致；索引来源已排序去重，无索引位移问题。
 
 ```rust
-// 代替 filter / every
-let kept: Vec<(&str, i32)> = map.to_entries()
-    .into_iter()
-    .filter(|(_k, v)| *v >= 90)
-    .collect();
-let map = AnyMap::with_iter(kept);
+use nothings::any_maps::app::AnyMap;
 
-let all_match = map.to_entries().iter().all(|(_k, v)| *v >= 90);
+let mut map = AnyMap::with_iter(vec![("a", 0), ("b", 2), ("c", 3)]);
+map.filter(|_, v| *v >= 2);
+assert_eq!(map.to_entries(), vec![("b", 2), ("c", 3)]);
+
+assert!(map.every(|_, v| *v >= 2));   // 返回 bool，首个 false 短路
 ```
 
 ## 示例
@@ -172,6 +157,6 @@ assert_eq!(map.len(), 1);
 
 ## 备注
 
-- `app.rs` 中声明了 `AnyMapTrait`，但 `AnyMap` 并未实现它，仅作为接口说明存在。请勿在代码中 `use` 该 trait。其 intended signature 是 `every -> bool` / `clean(&mut self) -> &mut Self`；实体 `AnyMap::every` 因 A4 仍返回 `&Self`，两者不一致属已知状态。
+- `app.rs` 中声明了 `AnyMapTrait`，但 `AnyMap` 并未实现它，仅作为接口说明存在。请勿在代码中 `use` 该 trait。其 intended signature 是 `every -> bool` / `clean(&mut self) -> &mut Self`；实体 `AnyMap::every` 已返回 `bool`，签名与该声明一致（trait 仍未实现）。
 - `Default` 仅为 `AnyMap<(), ()>` 实现，其他类型参数请用 `AnyMap::new()`。
 - `AnyMap` 不是 `std::collections::HashMap` 的替代品：查找为 O(n) 线性扫描，适合数据量小且需要保留插入顺序的场景。

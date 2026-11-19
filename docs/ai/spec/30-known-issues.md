@@ -1,24 +1,24 @@
 # 30 — 已知问题、禁用清单与安全边界
 
-状态：2026-11-18 基线（新增 `MYSQL1`-`MYSQL6`），全部条目**未修复**。修掉任何一条时，必须同步更新本文件、根 `README.md` 的已知问题表、对应模块 README，以及 `open-api/public-api.json` 中的 `status` 标注（改 `tools/gen_api_index.py` 的 `ANNOTATIONS` 后重生成）。
+状态：2026-11-19 基线。A 类 A1-A7 **已全部修复**（2026-11-19），编号保留空洞避免其它文档引用失效；其余条目未修复。修掉任何一条时，必须同步更新本文件、根 `README.md` 的已知问题表、对应模块 README，以及 `open-api/public-api.json` 中的 `status` 标注（改 `tools/gen_api_index.py` 的 `ANNOTATIONS` 后重生成）。
 
-编号 B19-B22、C2-C4、C11-C12 随 wasm 支持移除而作废，保留编号空洞避免其它文档引用失效。
+编号 A1-A7、B19-B22、C2-C4、C11-C12 随 wasm 支持移除或修复而作废，保留编号空洞避免其它文档引用失效。
 
 **编号说明**：ORM1-ORM7 是本文的编号体系；`tools/gen_api_index.py` 的 `ANNOTATIONS` 里另有一套 ORM1-ORM5，两者语义已错位、互不对齐，本次不重排旧编号。MySQL 驱动新增条目统一使用独立的 `MYSQL*` 前缀，不占用任何 `ORM*` 编号。
 
-## 1. A 类：功能失效（禁止依赖）
+## 1. A 类：功能失效（2026-11-19 已全部修复）
 
-| # | 位置 | 现象 | 根因 | 替代方案 |
-| --- | --- | --- | --- | --- |
-| A1 | `AnySlice::remove_by_indexes` (`src/any_slices/app.rs:347`) | 完全不删除元素 | `let _ = indexes.iter().map(...)`，惰性迭代器未消费 | `to_vec()` + `enumerate().filter()` + `set_data()` |
-| A2 | `AnyMap::filter` / `remove_by_keys` / `remove_by_values` / `remove_empty` | 全部不生效 | 依赖 A1 | `to_entries()` → `filter` → `AnyMap::with_iter()` |
-| A3 | `AnySlice::shuffle` | 返回的副本仍是原顺序 | 打乱的是临时克隆 | `shuffle_self(&mut self)` |
-| A4 | `AnyMap::every` | 返回 `&Self` 而不是 `bool` | 两条分支都返回 `&Self` | `to_entries().iter().all(...)` |
-| A5 | `Dir::join` | 返回原目录 | `PathBuf::join` 返回值被 `let _ =` 丢弃 | 自行 `PathBuf::join` 后再 `Dir::new` |
-| A6 | `impl_singleton!` | 外部 crate **整个宏编译失败**（`E0603: Singleton is private`） | 宏展开引用 `pub(crate) trait Singleton` | 手写 `OnceLock<Mutex<T>>`，见 `src/singletons/README.md` |
-| A7 | `Lz4::compress_with_level` / `with_lz4_level` | `level` 不影响输出（1/8/16 逐字节相同） | `lz4_flex` 只有快速压缩模式 | 要压缩率用 Zstd / Zlib |
+| # | 原位置 | 原现象 | 修复方式 |
+| --- | --- | --- | --- |
+| A1 | `AnySlice::remove_by_indexes` | 惰性迭代器未消费，完全不删除 | 改为 `mem::take` + `into_iter().enumerate().filter()`，保签名、不加 `Clone` 约束 |
+| A2 | `AnyMap::filter` / `remove_by_keys` / `remove_by_values` / `remove_empty` | 依赖 A1，全部不生效 | A1 修复后自动恢复；`remove_empty` 返回类型统一为 `&mut Self` |
+| A3 | `AnySlice::shuffle` | 打乱临时克隆，返回原顺序 | 打乱待返回的 `Vec` 后再构造 `AnySlice` |
+| A4 | `AnyMap::every` | 返回 `&Self`，不能作谓词 | 改为 `-> bool`，短路语义不变，与 `AnyMapTrait` 声明对齐 |
+| A5 | `Dir::join` | `PathBuf::join` 返回值被丢弃 | `let mut path` + `path = path.join(segment)` |
+| A6 | `impl_singleton!` | 外部 crate 编译失败 E0603 | `Singleton` trait 改 `pub`；新增 `tests/singletons.rs` 跨 crate 守护 |
+| A7 | `Lz4::compress_with_level` / `with_lz4_level` | `level` 不影响输出 | 换 `lz4` crate（bundled liblz4 HC），`level 1-16` 生效，>16 钳 16；输出仍是标准 frame，`lz4_flex` 解码端不变 |
 
-A6 的修复只需把 `src/singletons/app.rs:1` 的 `pub(crate)` 改成 `pub`，但改之前不要生成依赖该宏的代码。A1 的修复会同时让 A2 的四个方法恢复可用——修完要一起复测。
+七个失效项均有「修复前失败、修复后通过」的回归测试（A6 为独立集成测试）。A7 新增 C 依赖 `lz4 = "1"`（`lz4-sys` 内置 liblz4 C 源码，通过 `cc` 编译，不依赖系统库），MSRV 1.89 实测通过。
 
 ## 2. B 类：接口陷阱（能跑但语义容易误判）
 
@@ -69,6 +69,14 @@ A6 的修复只需把 `src/singletons/app.rs:1` 的 `pub(crate)` 改成 `pub`，
 | ORM7 | **SQLite 并发** | 一个 `NOrmSqliteDriver` 持一条连接，不是 `Sync`；并发场景每线程一个实例。连接池在 YAGNI 清单 |
 | MYSQL5 | **`NOrmMysqlDriver::execute_ddl` 原始 SQL** | 不参数化、不校验语句条数。实测 `mysql 28.0.4` 的 `query_drop` 允许分号拼接多语句，绝不接用户输入，只用于固定字面量 DDL；DDL 会隐式提交，事务内只做 DML |
 | MYSQL6 | **MySQL 连接与测试** | 一个 `NOrmMysqlDriver` 持一条连接，无连接池、非 `Sync`；`query` 全量物化，大结果集内存线性增长。集成测试强制 `NOTHINGS_MYSQL_DSN`，缺变量直接失败，账号需 `CREATE/DROP DATABASE` 权限 |
+| ORM8 | **JOIN 的 COUNT 一对多膨胀** | JOIN 下 `count()` 是 `COUNT(*)`，一对多会按行数计数而非主表实体数；需要去重请自己写裸 SQL |
+| ORM9 | **JOIN 左列只做标识符校验** | 多 JOIN 链中 `join()` 的 `on` 左列无法携带实体类型信息，只校验安全标识符（不查白名单），写错列名会在执行时报 SQL 错误而非构造期 `InvalidInput`；右列仍走 `T::COLUMNS` 白名单 |
+| ORM10 | **`all_with` 元组长度不匹配** | 元组元素个数须等于 JOIN 数 + 1，否则投影时返回 `InvalidInput`；`all_with` 在无 JOIN 时也报 `InvalidInput` |
+| PL1 | **Preload 路径校验时机** | `preload(name)` 支持点分路径（`books.comments`），逐层批量查询；首段构造期按 `E::RELATIONS` 校验（拼错延后报 `InvalidInput` 且零 SQL），后续段在执行期由递归方法逐层校验（此时前序层查询已发生）；重叠路径自动保留最长，避免重复查询前缀层；空段（`books..author`）报 `InvalidInput` |
+| PL2 | **Preload 外键与关联字段形态** | belongs_to 的 `foreign_key` 必须是本表真实标量 DB 列名（关联字段不进 `column_value`）；双向关联必须用 `Vec<T>` / `Option<T>` 打断尺寸递归，直接互含会编译失败（E0072）；has_many/belongs_to 必须与 target/foreign_key 同时出现，关联字段不得再标 primary_key/nullable/column |
+| PL3 | **Preload 批量与 NULL 语义** | 批量 IN 每批最多 `NORM_PRELOAD_CHUNK_SIZE`（500）个键，自动分批；belongs_to 外键为 NULL 时关联字段保持 `None` 且不进 IN 列表；结果按目标主键去重（保留首次出现），跨父实体仍各自独立解码实例；手写 `NOrmEntity` 需自行实现 `NOrmPreload` 才能调用 `preload()` |
+| PL4 | **递归 Preload 的实体状态** | `NOrmPreload::preload_path` 由 `#[derive(NOrmEntity)]` 生成以支持多层；手写 impl 用 provided 默认实现，仅支持单层（多层报 `InvalidInput`）。递归中每层由 `from_row` 重新解码为独立实例，关联字段为空初值、仅由更深路径填充，不形成对象图环；错误路径下实体可能半填充（关联字段已被 take 出），状态未定义 |
+| PL5 | **懒加载 N+1** | `NOrmRepository::load_relation(&mut entity, name)` 单实体原地填充，支持点分路径；每次调用只查一个实体的关联，逐个调用产生 N+1，批量场景请用 `query().preload(..)` |
 | MYSQL7 | **时区自动转换的边界** | 自动转换只对 `NOrmValue::NOrmDateTime` 生效，`NOrmValue::Text` / `I64` 一律不转（避免误伤 DECIMAL/JSON/普通字符串）。`connect_with_tz` 用 `OptsBuilder::init` 下发 `SET time_zone`，但会话设置对 DATETIME 内部无效——由驱动层墙钟换算补偿，外部直写 DATETIME 的数据不保证正确。**所有 TIMESTAMP/DATETIME 列读回一律 `NOrmValue::NOrmDateTime`，`String` 字段会读到 `InvalidData`，须改用 `NOrmDateTime` 字段**。固定偏移无 DST，不支持命名时区自动夏令时；SQLite 驱动不支持自动转换（按墙钟原样写 TEXT） |
 
 ## 4. 使用规则

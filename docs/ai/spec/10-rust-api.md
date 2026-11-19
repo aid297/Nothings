@@ -10,7 +10,7 @@
 | 所有权 | `AnySlice::get_data(self)` 消耗自身；`File::remove(self)` / `Dir::remove(self)` / `Dir::up(self)` / `Dir::join(self, ..)` 消耗自身；`HttpResponse::content(self, ..)` / `error(self, ..)` 消耗并返回自身 |
 | 返回值是值不是引用 | `AnySlice::first/last/get_value_by_index` 返回克隆的 `Option<T>`；`AnyMap::get_value_by_key` 返回克隆的 `Result<V, Error>`；`to_vec()` 返回内部 `Vec<T>` 的引用 |
 | trait bound | 集合运算、拷贝、字符串化普遍要求 `Clone` / `PartialEq` / `Display`；具体见 JSON 的 `signature` 与各模块 README 的约束列 |
-| 未实现的 trait | `AnySliceTrait` / `AnyMapTrait` 只有声明没有 impl，**不要 `use`**。`AnyMapTrait` 的 intended signature 是 `every -> bool` / `clean(&mut self) -> &mut Self`；实体 `AnyMap::every` 因 A4 仍返回 `&Self`，二者不一致属已知状态 |
+| 未实现的 trait | `AnySliceTrait` / `AnyMapTrait` 只有声明没有 impl，**不要 `use`**。`AnyMapTrait` 的 intended signature 是 `every -> bool` / `clean(&mut self) -> &mut Self`；实体 `AnyMap::every` 已返回 `bool`，与该声明一致（trait 仍未实现） |
 | 状态标记 | JSON 的 `status`：`ok` 可用、`broken` 实现失效（禁止依赖）、`limited` 有限制、`unimplemented` trait 只有声明未实现 |
 
 ## 2. 模块契约
@@ -20,8 +20,8 @@
 增强版 `Vec<T>`，链式方法返回 `&mut Self`。
 
 - `new(Vec<T>) -> Self`；`to_vec(&self) -> &Vec<T>`；`set_data(&mut self, Vec<T>) -> &mut Self`；`copy(&self) -> Self`。
-- `remove_by_index(&mut self, index: &usize)` 参数是**引用**，越界安全；`remove_by_indexes(&Vec<usize>)` 是空操作（`broken`）。
-- `shuffle(&self) -> AnySlice<T>` 返回未打乱的副本（`broken`）；`shuffle_self(&mut self)` 才真正打乱。
+- `remove_by_index(&mut self, index: &usize)` 参数是**引用**，越界安全；`remove_by_indexes(&Vec<usize>)` 按原始索引批量移除，越界忽略、重复幂等。
+- `shuffle(&self) -> AnySlice<T>` 返回打乱后的新副本；`shuffle_self(&mut self)` 原地打乱。
 - `get_indexes_by_values` 内部 `unwrap`，任一值不存在即 panic；`get_values` / `get_values_by_slicer` 会跳过越界索引。
 - `chunk(size)` 的 `size == 0` 会 panic；`set_value` 越界会 panic。
 - 集合运算 `union` / `intersection` / `difference`（及 `_slicer` 变体）为 O(n·m) 线性查找，不适合大数据量。
@@ -33,8 +33,8 @@
 - 构造器是 `new()` / `with_iter(I: IntoIterator<Item=(K,V)>)` / `with_hashmap(HashMap<K,V>)`（顺序不确定）。`push_datum` **不去重**，重复 key 会出现多次。
 - `set_value_by_key(K, V) -> Result<&mut Self, Error>`，key 不存在返回 `Err(NotFound)`；`get_value_by_key(&K) -> Result<V, Error>` 返回克隆值。
 - `in_keys` / `in_values` / `not_in_keys` / `not_in_values` 是「**所有**元素都满足」语义（底层 `all()`），不是「任一」。
-- `filter` / `remove_by_keys` / `remove_by_values` / `remove_empty` 均因 `AnySlice::remove_by_indexes` 失效而无效（`broken`）；`remove_by_key(&K)` / `remove_by_index(usize)` 可用。
-- `every(..) -> &Self` 不是 `bool`，不能作谓词（`broken`）。替：`to_entries().iter().all(..)`。
+- `filter` / `remove_by_keys` / `remove_by_values` / `remove_empty` 均可用；`remove_empty` 返回 `&mut Self` 可链式。
+- `every(..) -> bool`，首个 false 短路。
 - `Default` 只为 `AnyMap<(), ()>` 实现，其它类型用 `new()`。
 
 ### `compressions`
@@ -48,7 +48,7 @@ pub trait Compressor {
 
 - 工厂函数返回 `Box<dyn Compressor>`：`with_lz4()` / `with_lz4_level(u32)` / `with_zlib()` / `with_zlib_level(u32)` / `with_zstd()` / `with_zstd_level(i32)`。**只有 `with_zstd_level` 是 `i32`**。
 - 三个算法类型 `compressions::{lz4,zlib,zstd4}::app::{Lz4,Zlib,Zstd}` 接口一致，全部是关联函数：`new()` / `with_level(level)` / `compress(&[u8])` / `compress_with_level(&[u8], level)` / `decompress(&[u8])` / `compress_file(&str,&str) -> Result<(), Error>` / `compress_file_with_level(..)` / `decompress_file(&str,&str) -> Result<(), Error>` / `compression_ratio(&[u8],&[u8]) -> f64`。
-- 级别：Lz4 1-16（**参数不影响输出**，实测 1/8/16 逐字节相同）；Zlib 0-9（默认 6，0 = 仅存储）；Zstd 1-21（默认 3）。
+- 级别：Lz4 1-16（liblz4 HC，>16 钳 16，级别影响压缩率）；Zlib 0-9（默认 6，0 = 仅存储）；Zstd 1-21（默认 3）。
 - `Lz4` 输出标准 LZ4 frame；解压必须用同一算法，magic 校验失败返回 `Err`。
 
 ### `digests`
@@ -82,7 +82,7 @@ pub trait Symmetric {
 - `file::File` 与 `dir::Dir` 字段全部 `pub`，没有 `Debug` / `Clone`；路径参数统一 `&str`，不接受 `Path` / `PathBuf`。
 - `File::write` 是**覆盖**不是追加；`read()` 依赖构造时的 `exist` 快照（文件后来才创建会误报不存在）。
 - `File::mv` 返回 `&Self`、失败写 `err`，成功后**不清除旧 `err`**；调用前先 `f.err = None`。`Dir::mv` 无此问题。
-- `Dir::new` 递归扫描整棵子树（无惰性接口）；`Dir::up` 对相对路径失效；`Dir::join` 是空操作；`Dir::set_mode` 在非 Unix 总返回 `Err`。
+- `Dir::new` 递归扫描整棵子树（无惰性接口）；`Dir::up` 对相对路径失效；`Dir::join` 逐段拼接路径返回新 `Dir`（目标不存在时 `err` 写明）；`Dir::set_mode` 在非 Unix 总返回 `Err`。
 - `zip` / `unzip` 接收 `&dyn Compressor`，产物是**自定义 TLV 归档 + 压缩**，不是 ZIP；不保存空目录；`unzip` 不校验路径逃逸，**不要用于不可信归档**。
 
 ### `http_responses::HttpResponse<T>`
@@ -120,7 +120,7 @@ pub struct HttpResponse<T> {
 
 - `impl_singleton!` 用 `#[macro_export]` 定义在 `src/singletons/app.rs`，导出位置是 **crate 根** `nothings::impl_singleton!`。
 - 生成 `instance() -> &'static Mutex<T>`、`default() -> Self`（新建实例，不是单例）、`with(FnOnce(&mut T) -> R) -> R`。要求类型有 `fn default_new() -> Self`、每个类型只能调用一次。
-- **外部 crate 不可用**：宏展开引用 `pub(crate) trait Singleton`，报 `E0603` 导致整个宏失效。替代写法见 `src/singletons/README.md`。`with()` 内部 `.lock().unwrap()`，锁中毒后所有调用 panic。
+- **外部 crate 可用**：`Singleton` trait 已 `pub`，跨 crate 守护见 `tests/singletons.rs`。`with()` 内部 `.lock().unwrap()`，锁中毒后所有调用 panic。
 
 ### `coroutines`
 
@@ -135,11 +135,14 @@ pub struct HttpResponse<T> {
 | `NOrmValue` | `Null / Bool / I64 / F64 / Text / Blob` | 运行时列值；`NOrmToValue` / `NOrmFromValue` 双向转换；`Option<T>` 的 Null → None |
 | `NOrmSqlType` | `Integer / Real / Text / Blob` | `NOrmHasSqlType::SQL_TYPE` 静态标签 |
 | `NOrmRow` / `NOrmOwnedRow` | `column_count` / `column_name` / `value` | `NOrmDriver::query` 必须即时物化为 owned 行 |
-| `NOrmSchema` | `const TABLE` / `const COLUMNS` / `fn pk()` | 由 `#[derive(NOrmEntity)]` 生成 |
+| `NOrmSchema` | `const TABLE` / `const COLUMNS` / `const RELATIONS`（默认 `&[]`） / `fn pk()` | 由 `#[derive(NOrmEntity)]` 生成 |
+| `NOrmRelation` / `NOrmRelationKind` | `name` / `kind` / `foreign_key` / `target_table` / `target_columns` | 关联静态元信息，宏生成到 `RELATIONS` |
+| `NOrmPreload` | `fill_relation(&mut self, name, &[NOrmOwnedRow])` / `preload_one(name, &mut [Self], &mut D)` / `preload_path(&mut [Self], path, &mut D)` | 前两者由宏生成/provided；`preload_path` 宏生成多层实现、手写 impl 默认仅单层 |
 | `NOrmEntity` | `from_row<R: NOrmRow>` / `pk_value` / `column_value` | 全部由宏生成，调用方需 `use nothings_orm::entity::NOrmEntity as EntityTrait` 才能调 trait 方法 |
 | `NOrmDriver` | `execute` / `query` / `last_insert_id` / `begin` / `commit` / `rollback` | 后端抽象；所有 SQL 必须参数化；驱动 crate 需显式 `use nothings_orm::driver::NOrmDriver` 才能 impl |
+| `NOrmRepository::load_relation` | `&mut E` + `name: &str`，原地补关联、支持点分；单实体 N+1 |
 | `NOrmRepository` | `insert` / `get` / `find_one` / `find_all` / `update` / `delete` / `query` / `transaction` | 泛型 `D: NOrmDriver`；`get` 未找到返 `NotFound`，`find_one` 返 `Ok(None)` |
-| `NOrmQueryBuilder` | `r#where` / `and_where` / `or_where` / `not_where` / `where_op` / `or_where_op` / `where_condition` / `or_where_condition` / `not_where_condition` / `order_by` / `limit` / `offset` / `all` / `one` / `count` | 链式 `&mut Self`，条件左折叠、渲染期最小括号；列名必须在 schema 白名单内；MySQL 下 `offset()` 必须搭配 `limit()` |
+| `NOrmQueryBuilder` | `r#where` / `and_where` / `or_where` / `not_where` / `where_op` / `or_where_op` / `where_condition` / `or_where_condition` / `not_where_condition` / `preload` / `order_by` / `limit` / `offset` / `all` / `one` / `count` | 链式 `&mut Self`，条件左折叠、渲染期最小括号；列名必须在 schema 白名单内；MySQL 下 `offset()` 必须搭配 `limit()` |
 | `NOrmCondition<E>` / `NOrmOperator` | `eq/ne/gt/ge/lt/le/like/not_like/cmp` / `in_list/not_in_list` / `is_null/is_not_null` / `and/or/group` + `!`（`std::ops::Not`） | `nothings_orm::condition`；条件树可独立构造后注入 `where_condition`；独立构造需显式 `NOrmCondition::<E>` 类型参数 |
 | `NOrmSqliteDriver` | `open(&str)` / `in_memory()` / `execute_batch(&str)` | rusqlite bundled；`execute_batch` 仅供 DDL/测试 |
 | `NOrmMysqlDriver` | `connect(&str)` / `connect_with_tz(&str, NOrmUtcOffset, NOrmUtcOffset)` / `execute_ddl(&str)` | 同步 `mysql` crate（minimal-rust）；`execute_ddl` 单条原始 DDL，不参数化；`impl NOrmDriver` 的 6 个方法在 JSON 中记为 `inherited (trait method)` |
@@ -159,9 +162,10 @@ pub struct HttpResponse<T> {
 | `Aes::set_key` / `set_iv` | 返回 `&mut Self`（可连续链式） |
 | `File::zip` / `Dir::zip` | 都返回 `Result<File, String>`（新 `File` 对象），不是 `()` |
 | 压缩 `compress_file*` | 返回 `Result<(), Error>`，不是压缩后的字节 |
-| `AnyMap::every` | `-> &Self`，不是 `bool` |
+| `AnyMap::every` | `-> bool`（2026-11-19 修正） |
 | `NOrmEntity::from_row` | trait 方法，需导入 `nothings_orm::entity::NOrmEntity as EntityTrait`；crate 根的同名 `NOrmEntity` 是派生宏 |
 | `NOrmQueryBuilder::r#where` | raw identifier，列名必须在 `E::COLUMNS` 白名单内 |
+| `NOrmQueryBuilder::preload` | `name: &'static str` + `where E: NOrmPreload`；支持点分路径 `books.comments`；首段构造期校验（错则零 SQL），后续段执行期逐层校验；重叠路径保留最长；每批最多 500 键 |
 | 条件链的连接顺序 | 左折叠：`a AND b OR c` 解析为 `(a AND b) OR c`，不按 SQL 优先级重排；首项 `or_where` 退化为裸首项 |
 | `NOrmCondition::<E>::in_list` / `is_null` | 参数里不含实体类型，独立构造需写 `NOrmCondition::<User>::...`；空 IN 折叠为 `0 = 1` |
 | `NOrmSqliteDriver::execute_batch` | 原始 SQL，不参数化，禁止传用户输入 |

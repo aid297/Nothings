@@ -113,7 +113,7 @@ nothings-macros/      Cargo.toml src/{lib,entity}.rs
 | 四个 crate 各自 `cargo test --manifest-path ...` | 根 299+21；nothings-orm 40（36 单测含 16 项 WHERE 渲染断言 + 4 派生宏集成）；nothings-orm-sqlite 22（含 10 个新增条件集成）；nothings-orm-mysql 基线 29，另新增 6 个条件集成测试（已编译验证，本次环境无 `NOTHINGS_MYSQL_DSN` 未实跑） |
 | `cargo doc --no-deps` | 无 secrets 相关告警（历史记录） |
 | `cargo clippy --all-targets` | 0 error（存量 `mut_from_ref` deny 已修复）；其它存量告警不处理，只要求新增代码 0 告警 |
-| `python3 docs/ai/tools/gen_api_index.py --check` | 契约与源码一致：**515** 个公开 item（根 376 + orm 119 + sqlite 10 + mysql 10）、0 个 C-ABI 导出；`generator_version = 3`、4 个源根 / 4 个 crate |
+| `python3 docs/ai/tools/gen_api_index.py --check` | 契约与源码一致：**555** 个公开 item（根 378 + orm 157 + sqlite 10 + mysql 10）、0 个 C-ABI 导出；`generator_version = 3`、4 个源根 / 4 个 crate |
 
 ## 8. 版本与变更登记
 
@@ -129,6 +129,10 @@ nothings-macros/      Cargo.toml src/{lib,entity}.rs
 | 2026-11-18 | 双时区自动转换：`nothings-orm` 新增 `NOrmUtcOffset` / `NOrmDateTime` / `NOrmValue::NOrmDateTime`，`NOrmMysqlDriver::connect_with_tz` | **破坏性**：`NOrmValue` 加变体；TIMESTAMP/DATETIME 读回一律 `NOrmValue::NOrmDateTime`，`String` 字段须迁移。契约 465 → 488 item；新增 MYSQL7 边界；依赖仍零新增（不引 chrono/time） |
 | 2026-11-18 | WHERE 条件增强：`nothings-orm` 新增 `condition` 模块（`NOrmCondition<E>` / `NOrmOperator`），`NOrmQueryBuilder` 追加 8 个链式条件方法；WHERE 渲染 AST 化并合并 `all()` / `count()` 路径 | 非破坏性：现有 7 个方法签名与 AND-only SQL 不变；错误文本去掉内部哨兵前缀；契约新增公开 item，需重生成 `public-api.json`；驱动 crate 零改动 |
 | 2026-11-18 | ORM 全部公开类型加 `NOrm` 前缀（19 个：`NOrmEntity` / `NOrmSchema` / `NOrmDriver` / `NOrmRepository` / `NOrmQueryBuilder` / `NOrmCondition` / `NOrmOperator` / `NOrmValue` / `NOrmToValue` / `NOrmFromValue` / `NOrmHasSqlType` / `NOrmSqlType` / `NOrmColumn` / `NOrmRow` / `NOrmOwnedRow` / `NOrmDateTime` / `NOrmUtcOffset` / `NOrmSqliteDriver` / `NOrmMysqlDriver`） | **破坏性**：旧名无别名、全部移除；派生宏改 `#[derive(NOrmEntity)]`，但 `#[entity(...)]` 属性名与 trait 成员名（`SQL_TYPE` / `TABLE` / `from_row` 等）保持不变；宏生成路径、驱动第三方类型（`mysql::Column` / `rusqlite::Value`）不受影响；契约 item 数不变（515），仅路径改名 |
+| 2026-11-19 | ORM SQL 层 JOIN / 子查询：`join.rs` 新增 `NOrmJoinKind` / `NOrmSubquery` / `NOrmFromJoined`；`NOrmQueryBuilder` 加 join / where_qualified / where_*_subquery / all_with；`NOrmPrefixedRow` 实现零宏改动的宽行映射 | 非破坏性（纯追加）：单表 SQL 字符串不变；契约 515 → **539 items**；JOIN 表别名 t1..tn、主表 t0；关联对象聚合仍在 YAGNI；两驱动零改动 |
+| 2026-11-19 | ORM Preload 单层关联预加载：`schema.rs` 加 `NOrmRelation` / `NOrmRelationKind` / `RELATIONS` 默认常量，`entity.rs` 加 `NOrmPreload` trait；派生宏支持 `has_many` / `belongs_to` 字段属性并生成 `fill_relation`；`NOrmQueryBuilder::preload` 两阶段批量查询 + 500 分块 | 非破坏性（纯追加）：无关联实体零改动，`all()` bound 不变；契约 539 → **550 items**；递归/多层预加载仍在 YAGNI；驱动零改动 |
+| 2026-11-19 | 修复 spec/30 的 A1-A7 七个失效 API：容器批量删除/shuffle/every、`Dir::join`、`impl_singleton!` 外部可见性、Lz4 分级压缩 | A1→A6 纯修复（两处签名对齐 trait：`AnyMap::every -> bool`、`remove_empty -> &mut Self`）；A7 新增 `lz4 = "1"`（bundled liblz4 HC，C 工具链必需，解压端 lz4_flex 不变），MSRV 1.89 实测通过；新增跨 crate 集成测试 `tests/singletons.rs`；契约 550 → **552 items**（`Singleton` trait + `with` 随公开化新增） |
+| 2026-11-19 | ORM 关联能力 Phase 4：`preload` 支持点分路径递归（`books.comments`，逐层批量非 N+1）、结果按目标主键去重、前缀路径自动合并；`NOrmPreload` 新增 provided `preload_one` / `preload_path`（宏生成多层实现，手写 impl 默认单层）；`NOrmRepository::load_relation` 懒加载 | 非破坏性（provided 默认方法 + 纯追加）；契约 552 → **555 items**；新增 PL4/PL5 边界；两驱动零改动 |
 
 ## 9. 明确不提供
 
@@ -137,4 +141,5 @@ nothings-macros/      Cargo.toml src/{lib,entity}.rs
 - AES-GCM 的 AAD、base64/hex 编解码、文件加解密、密钥内存擦除（`zeroize` 未启用）。
 - 标准 ZIP 归档（`Dir::zip` 是自定义 TLV + 压缩）。
 - SM4 / 非对称加密：`secrets::symmetric` 是预留的分类命名空间，尚未实现。
-- ORM 的 async、连接池、关联加载、Migration、软删除/时间戳钩子、Postgres 驱动（MySQL 驱动已由 `nothings-orm-mysql` 提供，见 `spec/51`；Phase 2 路线见 `spec/50`）。
+- ORM 的 async、连接池、Migration、软删除/时间戳钩子、Postgres 驱动（MySQL 驱动已由 `nothings-orm-mysql` 提供，见 `spec/51`；Phase 2 路线见 `spec/50`）。
+

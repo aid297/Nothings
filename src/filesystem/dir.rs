@@ -172,10 +172,10 @@ impl Dir {
 
     /// 拼接路径
     pub fn join(mut self, paths: &Vec<&str>) -> Self {
-        let path = PathBuf::from(self.full_path.as_str());
+        let mut path = PathBuf::from(self.full_path.as_str());
 
-        for i in 0..paths.len() {
-            let _ = path.join(paths[i]);
+        for segment in paths {
+            path = path.join(segment);
         }
 
         if path.to_str().unwrap_or("").is_empty() {

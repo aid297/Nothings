@@ -5,6 +5,7 @@
 
 use std::marker::PhantomData;
 
+use crate::join::NOrmSubquery;
 use crate::schema::{validate_column, NOrmSchema};
 use crate::value::{NOrmToValue, NOrmValue};
 
@@ -54,6 +55,8 @@ pub struct NOrmCondition<E: NOrmSchema> {
 
 enum Node<E: NOrmSchema> {
     Cmp(Comparison<E>),
+    /// 子查询条件：`col IN (subquery)` 或 `EXISTS (subquery)`。
+    Sub(SubqueryCmp<E>),
     And(Vec<Node<E>>),
     Or(Vec<Node<E>>),
     Not(Box<Node<E>>),
@@ -61,10 +64,38 @@ enum Node<E: NOrmSchema> {
     Group(Box<Node<E>>),
 }
 
+/// 一个带表别名的列引用。`alias` 为 `Some("t0")` 时渲染 `t0.col`，
+/// 否则渲染裸列名（单表查询保持原有 SQL 字符串不变）。
+#[derive(Clone, Debug)]
+struct ColumnRef {
+    alias: Option<String>,
+    name: &'static str,
+}
+
+impl ColumnRef {
+    /// `default_alias` 用于 JOIN 模式下给裸列名补主表前缀（`t0.`），
+    /// 避免两表同名字段产生歧义。单表查询传 `None`，保持原有 SQL 字符串。
+    fn render(&self, sql: &mut String, default_alias: Option<&str>) {
+        match &self.alias {
+            Some(alias) => {
+                sql.push_str(alias);
+                sql.push('.');
+            }
+            None => {
+                if let Some(alias) = default_alias {
+                    sql.push_str(alias);
+                    sql.push('.');
+                }
+            }
+        }
+        sql.push_str(self.name);
+    }
+}
+
 struct Comparison<E: NOrmSchema> {
-    /// 构造期校验结果：Ok(白名单里的 DB 列名) / Err(错误消息)。
+    /// 构造期校验结果：Ok(列引用) / Err(错误消息)。
     /// 存 String 而非 io::Error（后者不实现 Clone），统一以 InvalidInput 上报。
-    column: Result<&'static str, String>,
+    column: Result<ColumnRef, String>,
     op: NOrmOperator,
     /// 普通比较 1 个；IN / NOT IN 多个；IS NULL / IS NOT NULL 零个。
     values: Vec<NOrmValue>,
@@ -72,16 +103,93 @@ struct Comparison<E: NOrmSchema> {
     phantom: PhantomData<E>,
 }
 
+/// 子查询比较。`kind` 决定渲染形态，`column` 只对 IN/NOT IN 有意义。
+struct SubqueryCmp<E: NOrmSchema> {
+    column: Result<ColumnRef, String>,
+    kind: SubqueryKind,
+    subquery: NOrmSubquery,
+    phantom: PhantomData<E>,
+}
+
+/// 子查询条件种类。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NOrmSubqueryKind {
+    /// `col IN (subquery)`
+    In,
+    /// `col NOT IN (subquery)`
+    NotIn,
+    /// `EXISTS (subquery)`
+    Exists,
+    /// `NOT EXISTS (subquery)`
+    NotExists,
+}
+
+use NOrmSubqueryKind as SubqueryKind;
+
 impl<E: NOrmSchema> NOrmCondition<E> {
+    /// 构造裸列名的叶子引用（单表查询用）。
+    fn bare_ref(column: &str) -> Result<ColumnRef, String> {
+        validate_column::<E>(column)
+            .map(|c| ColumnRef {
+                alias: None,
+                name: c.name,
+            })
+            .map_err(|e| e.to_string())
+    }
+
     fn leaf(column: &str, op: NOrmOperator, values: Vec<NOrmValue>) -> Self {
-        let column = validate_column::<E>(column)
-            .map(|c| c.name)
+        Self {
+            root: Node::Cmp(Comparison {
+                column: Self::bare_ref(column),
+                op,
+                values,
+                phantom: PhantomData,
+            }),
+        }
+    }
+
+    /// 带表别名的条件叶子，如 `t0.active = ?`。别名由 JOIN 构建器注入，
+    /// 列名仍走 `E::COLUMNS` 白名单校验（这里 E 就是该别名对应的实体类型）。
+    pub(crate) fn qualified<S: NOrmSchema>(
+        alias: &str,
+        column: &str,
+        op: NOrmOperator,
+        values: Vec<NOrmValue>,
+    ) -> Self {
+        let column = validate_column::<S>(column)
+            .map(|c| ColumnRef {
+                alias: Some(alias.to_string()),
+                name: c.name,
+            })
             .map_err(|e| e.to_string());
         Self {
             root: Node::Cmp(Comparison {
                 column,
                 op,
                 values,
+                phantom: PhantomData,
+            }),
+        }
+    }
+
+    /// 子查询条件叶子。
+    pub(crate) fn subquery(
+        column: Option<&str>,
+        kind: NOrmSubqueryKind,
+        subquery: NOrmSubquery,
+    ) -> Self {
+        let column = match column {
+            Some(name) => Self::bare_ref(name),
+            None => Ok(ColumnRef {
+                alias: None,
+                name: "",
+            }),
+        };
+        Self {
+            root: Node::Sub(SubqueryCmp {
+                column,
+                kind,
+                subquery,
                 phantom: PhantomData,
             }),
         }
@@ -172,6 +280,26 @@ impl<E: NOrmSchema> NOrmCondition<E> {
         Self::leaf(column, NOrmOperator::IsNotNull, Vec::new())
     }
 
+    /// `col IN (subquery)`。列名走本实体白名单校验。
+    pub fn in_subquery(column: &str, subquery: NOrmSubquery) -> Self {
+        Self::subquery(Some(column), NOrmSubqueryKind::In, subquery)
+    }
+
+    /// `col NOT IN (subquery)`。
+    pub fn not_in_subquery(column: &str, subquery: NOrmSubquery) -> Self {
+        Self::subquery(Some(column), NOrmSubqueryKind::NotIn, subquery)
+    }
+
+    /// `EXISTS (subquery)`。不引用本实体列。
+    pub fn exists(subquery: NOrmSubquery) -> Self {
+        Self::subquery(None, NOrmSubqueryKind::Exists, subquery)
+    }
+
+    /// `NOT EXISTS (subquery)`。
+    pub fn not_exists(subquery: NOrmSubquery) -> Self {
+        Self::subquery(None, NOrmSubqueryKind::NotExists, subquery)
+    }
+
     /// 消费自身，与另一棵树做 AND 组合。
     pub fn and(self, other: NOrmCondition<E>) -> Self {
         Self {
@@ -198,6 +326,7 @@ impl<E: NOrmSchema> NOrmCondition<E> {
         fn walk<E: NOrmSchema>(node: &Node<E>) -> Option<&str> {
             match node {
                 Node::Cmp(c) => c.column.as_ref().err().map(|s| s.as_str()),
+                Node::Sub(s) => s.column.as_ref().err().map(|e| e.as_str()),
                 Node::And(kids) | Node::Or(kids) => kids.iter().find_map(walk),
                 Node::Not(child) | Node::Group(child) => walk(child),
             }
@@ -206,8 +335,16 @@ impl<E: NOrmSchema> NOrmCondition<E> {
     }
 
     /// 把条件渲染进 `sql`，同时按 `?` 出现顺序收集 `params`。
-    pub(crate) fn render_into(&self, sql: &mut String, params: &mut Vec<NOrmValue>) {
-        self.root.render_prec(sql, params, 0);
+    ///
+    /// `default_alias` 为 `Some` 时，裸列名会被限定为 `alias.col`（JOIN 模式所需）；
+    /// 单表查询传 `None`，SQL 字符串与旧版完全一致。
+    pub(crate) fn render_into(
+        &self,
+        sql: &mut String,
+        params: &mut Vec<NOrmValue>,
+        default_alias: Option<&str>,
+    ) {
+        self.root.render_prec(sql, params, 0, default_alias);
     }
 }
 
@@ -225,17 +362,24 @@ impl<E: NOrmSchema> std::ops::Not for NOrmCondition<E> {
 impl<E: NOrmSchema> Node<E> {
     /// 优先级：OR=1, AND=2, NOT/Group=3, 叶子=4。
     /// 子节点优先级严格小于父上下文优先级时才加括号；同优先级不加。
-    fn render_prec(&self, sql: &mut String, params: &mut Vec<NOrmValue>, parent_prec: u8) {
+    fn render_prec(
+        &self,
+        sql: &mut String,
+        params: &mut Vec<NOrmValue>,
+        parent_prec: u8,
+        default_alias: Option<&str>,
+    ) {
         match self {
-            Node::Cmp(c) => c.render(sql, params),
+            Node::Cmp(c) => c.render(sql, params, default_alias),
+            Node::Sub(s) => s.render(sql, params, default_alias),
             Node::Group(child) => {
                 sql.push('(');
-                child.render_prec(sql, params, 0);
+                child.render_prec(sql, params, 0, default_alias);
                 sql.push(')');
             }
             Node::Not(child) => {
                 sql.push_str("NOT (");
-                child.render_prec(sql, params, 0);
+                child.render_prec(sql, params, 0, default_alias);
                 sql.push(')');
             }
             Node::And(kids) => {
@@ -247,7 +391,7 @@ impl<E: NOrmSchema> Node<E> {
                     if i > 0 {
                         sql.push_str(" AND ");
                     }
-                    kid.render_prec(sql, params, 2);
+                    kid.render_prec(sql, params, 2, default_alias);
                 }
                 if need_parens {
                     sql.push(')');
@@ -262,7 +406,7 @@ impl<E: NOrmSchema> Node<E> {
                     if i > 0 {
                         sql.push_str(" OR ");
                     }
-                    kid.render_prec(sql, params, 1);
+                    kid.render_prec(sql, params, 1, default_alias);
                 }
                 if need_parens {
                     sql.push(')');
@@ -273,12 +417,16 @@ impl<E: NOrmSchema> Node<E> {
 }
 
 impl<E: NOrmSchema> Comparison<E> {
-    fn render(&self, sql: &mut String, params: &mut Vec<NOrmValue>) {
-        // check_valid 保证运行到这里时 column 必为 Ok；unwrap_or 仅作防御兜底。
-        let column = self.column.as_deref().unwrap_or("<invalid>");
+    fn render(&self, sql: &mut String, params: &mut Vec<NOrmValue>, default_alias: Option<&str>) {
+        // check_valid 保证运行到这里时 column 必为 Ok；此处仅作防御兜底。
+        let fallback = ColumnRef {
+            alias: None,
+            name: "<invalid>",
+        };
+        let column = self.column.as_ref().unwrap_or(&fallback);
         match self.op {
             NOrmOperator::IsNull | NOrmOperator::IsNotNull => {
-                sql.push_str(column);
+                column.render(sql, default_alias);
                 sql.push(' ');
                 sql.push_str(self.op.sql_token());
             }
@@ -287,7 +435,7 @@ impl<E: NOrmSchema> Comparison<E> {
                     // IN () 在多数数据库是语法错误，折叠成恒假/恒真常量。
                     sql.push_str(if self.op == NOrmOperator::In { "0 = 1" } else { "1 = 1" });
                 } else {
-                    sql.push_str(column);
+                    column.render(sql, default_alias);
                     sql.push(' ');
                     sql.push_str(self.op.sql_token());
                     sql.push_str(" (");
@@ -302,13 +450,41 @@ impl<E: NOrmSchema> Comparison<E> {
                 }
             }
             other => {
-                sql.push_str(column);
+                column.render(sql, default_alias);
                 sql.push(' ');
                 sql.push_str(other.sql_token());
                 sql.push_str(" ?");
                 if let Some(value) = self.values.first() {
                     params.push(value.clone());
                 }
+            }
+        }
+    }
+}
+
+impl<E: NOrmSchema> SubqueryCmp<E> {
+    fn render(&self, sql: &mut String, params: &mut Vec<NOrmValue>, default_alias: Option<&str>) {
+        match self.kind {
+            SubqueryKind::Exists => {
+                sql.push_str("EXISTS (");
+                self.subquery.render_into(sql, params);
+                sql.push(')');
+            }
+            SubqueryKind::NotExists => {
+                sql.push_str("NOT EXISTS (");
+                self.subquery.render_into(sql, params);
+                sql.push(')');
+            }
+            SubqueryKind::In | SubqueryKind::NotIn => {
+                let fallback = ColumnRef {
+                    alias: None,
+                    name: "<invalid>",
+                };
+                let column = self.column.as_ref().unwrap_or(&fallback);
+                column.render(sql, default_alias);
+                sql.push_str(if self.kind == SubqueryKind::In { " IN (" } else { " NOT IN (" });
+                self.subquery.render_into(sql, params);
+                sql.push(')');
             }
         }
     }
@@ -364,7 +540,7 @@ mod test {
     fn render<E: NOrmSchema>(condition: &NOrmCondition<E>) -> (String, Vec<NOrmValue>) {
         let mut sql = String::new();
         let mut params = Vec::new();
-        condition.render_into(&mut sql, &mut params);
+        condition.render_into(&mut sql, &mut params, None);
         assert_eq!(
             sql.matches('?').count(),
             params.len(),

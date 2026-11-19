@@ -89,6 +89,8 @@ struct User {
 | 字段 | `#[entity(primary_key)]` | 是 | **必须有且只有一个**主键 |
 | 字段 | `#[entity(column = "user_name")]` | 否 | DB 列名；不写则用 Rust 字段名 |
 | 字段 | `#[entity(nullable)]` | 否 | 可空；`Option<T>` 会自动推断，无需手写 |
+| 字段 | `#[entity(has_many = "books", target = "Book", foreign_key = "author_id")]` | 否 | 一对多关联，字段类型 `Vec<T>`，外键在目标表 |
+| 字段 | `#[entity(belongs_to = "author", target = "Author", foreign_key = "author_id")]` | 否 | 多对一关联，字段类型 `Option<T>`，外键在本表 |
 
 支持的字段类型：`i8/i16/i32/i64/u8/u16/u32`、`f32/f64`、`bool`、`String`、`Vec<u8>`、`NOrmDateTime`、`Option<T>`（T 为上述类型）。**不支持** `u64`、`&str`、Decimal、JSON 作为实体字段类型（见第 9 节）。时间列请用 `NOrmDateTime`，不要用 `String`（读回会得到 `NOrmValue::NOrmDateTime`，`String` 会报 `InvalidData`）。
 
@@ -299,6 +301,104 @@ let err = repo
 assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
 // 表还在，SQL 根本没生成
 ```
+
+### 6.1 JOIN 与子查询
+
+```rust
+use nothings_orm::join::{NOrmJoinKind, NOrmSubquery};
+
+// INNER JOIN + 多实体映射：主表 t0，JOIN 表按声明顺序 t1、t2...
+let rows = repo
+    .query::<Author>()
+    .join::<Book>(NOrmJoinKind::Inner, &[("id", "author_id")])
+    .all_with::<(Author, Book)>()
+    .unwrap();
+// rows: Vec<(Author, Book)>，元组元素按 JOIN 声明顺序对应
+
+// JOIN 后只取主表实体（关联列被忽略，JOIN 仅用于过滤）
+let authors = repo
+    .query::<Author>()
+    .join::<Book>(NOrmJoinKind::Left, &[("id", "author_id")])
+    .all()
+    .unwrap();
+
+// JOIN 表上的条件必须用 where_qualified 限定别名
+let rows = repo
+    .query::<Author>()
+    .join::<Book>(NOrmJoinKind::Inner, &[("id", "author_id")])
+    .where_qualified::<Book>("t1", "title", "two")
+    .all()
+    .unwrap();
+
+// 子查询：IN / EXISTS
+let sub = NOrmSubquery::with_params(
+    "SELECT author_id FROM books WHERE year = ?",
+    vec![NOrmValue::I64(2022)],
+);
+let rows = repo.query::<Author>().where_in_subquery("id", sub).all().unwrap();
+let rows = repo
+    .query::<Author>()
+    .where_exists(NOrmSubquery::new("SELECT 1 FROM books WHERE books.author_id = authors.id"))
+    .all()
+    .unwrap();
+```
+
+规则：
+- `join::<T>(kind, on)` 的 `on` 是 `[(左列, 右列)]`，左列按主表 `E` 校验、右列按 `T` 校验；ON 列只含标识符字符，非法延后报 `InvalidInput`。
+- JOIN 查询把列渲染为 `t0.id AS t0_id`；`all_with::<(A, B)>()` 按前缀拆成元组（支持 1~4 元），元组元素个数须与 JOIN 数 + 1 一致。
+- JOIN 模式下 `r#where` 的裸列自动补主表前缀 `t0.`；JOIN 表的列用 `where_qualified::<T>("t1", col, value)`。
+- 子查询 SQL 是调用方提供的固定字面量（禁止拼用户输入），值走 `params` 参数化；CROSS JOIN 传空 `on` 即可。
+- `count()` 在 JOIN 下是 `COUNT(*)`，一对多会按行数计数，需要去重时自己写裸 SQL。
+
+### 6.2 Preload：单层关联聚合
+
+派生宏用字段属性声明关联，查询时用 `preload(name)` 填充：
+
+```rust
+#[derive(NOrmEntity)]
+#[entity(table = "authors")]
+struct Author {
+    #[entity(primary_key, column = "id")]
+    id: i64,
+    #[entity(column = "name")]
+    name: String,
+    #[entity(has_many = "books", target = "Book", foreign_key = "author_id")]
+    books: Vec<Book>,
+}
+
+#[derive(NOrmEntity)]
+#[entity(table = "books")]
+struct Book {
+    #[entity(primary_key, column = "id")]
+    id: i64,
+    #[entity(nullable, column = "author_id")]
+    author_id: Option<i64>,
+    #[entity(column = "title")]
+    title: String,
+    #[entity(belongs_to = "author", target = "Author", foreign_key = "author_id")]
+    author: Option<Author>,
+}
+
+// has_many：主表主键 → 目标表外键
+let authors = repo.query::<Author>().preload("books").all().unwrap();
+assert!(!authors[0].books.is_empty());
+
+// belongs_to：本表外键 → 目标表主键
+let books = repo.query::<Book>().preload("author").all().unwrap();
+assert_eq!(books[0].author.as_ref().unwrap().name, "A");
+```
+
+规则：
+- `has_many = "名"` 填 `Vec<T>`（外键在目标表）；`belongs_to = "名"` 填 `Option<T>`（外键在本表）。`target` 是 Rust 类型路径，`foreign_key` 是 DB 列名。三者必须同时出现，关联字段不得再标 `primary_key` / `nullable` / `column`。
+- `preload(name)` 支持点分路径（`books.comments`），每层批量查询、非 N+1；首段拼错在终结方法报 `InvalidInput` 且**不产生任何 SQL**，后续段在执行期逐层校验。重叠路径自动保留最长，避免重复查询。
+- 两阶段查询：先查主表，再用主键批量查关联表（`WHERE author_id IN (?, ...)`），按外键分组填回。不是 JOIN，也不会产生 N+1。
+- 单次 IN 最多 `NORM_PRELOAD_CHUNK_SIZE`（500）个键，自动分批；超限时多批查询后合并。
+- **递归**：`preload("books.comments")` 逐层收集同层子实体成连续切片后批量查询，再回填各父实体——层数等于路径段数，不会 N+1。重复类型路径（如 `books.author.books`）每层由 `from_row` 重新解码为独立实例，关联字段为空初值、仅由更深路径填充，不形成对象图环。
+- **结果去重**：按目标实体主键对查询结果去重（保留首次），跨父实体仍各自独立解码。
+- **懒加载**：已取出的单个实体可用 `repo.load_relation(&mut entity, "books.comments")` 原地补关联；每次调用只查一个实体，逐个调用产生 N+1，批量请用 `preload`。
+- belongs_to 的外键必须是本表**真实标量列**（如 `author_id`）；外键为 NULL 时关联字段保持 `None`，不进 IN 列表。
+- 双向关联（Author.books + Book.author）必须用 `Vec<T>` / `Option<T>` 打断尺寸递归；直接互含会编译失败。
+- 关联字段不进 `COLUMNS`、不进 `SELECT`、不进 `column_value()`；`from_row` 给空初值，由 Preload 层填回。
 
 ---
 
@@ -672,8 +772,8 @@ impl NOrmDriver for MyDriver {
 明确不支持，别按其它 ORM 的习惯预期：
 
 - async / tokio（全同步 API）
-- 连接池、缓存、懒加载
-- 关联加载（has_many / belongs_to）、JOIN 查询
+- 连接池、缓存
+- 递归/多层关联预加载与懒加载均已支持，见 6.2
 - Migration（建表靠驱动 DDL）
 - 软删除、时间戳钩子
 - 批量插入 / upsert

@@ -1,14 +1,6 @@
-use lz4_flex::frame::{FrameDecoder, FrameEncoder};
-use std::io::{Error, ErrorKind, Read, Write};
+use lz4_flex::frame::FrameDecoder;
+use std::io::{Error, Read, Write};
 use crate::compressions::Compressor;
-
-/// 将 lz4_flex 错误转换为 `std::io::Error`
-fn to_io_error(err: lz4_flex::frame::Error) -> Error {
-    match err {
-        lz4_flex::frame::Error::IoError(e) => e,
-        err => Error::new(ErrorKind::InvalidData, err.to_string()),
-    }
-}
 
 /// LZ4 压缩工具
 pub struct Lz4 {
@@ -48,8 +40,9 @@ impl Lz4 {
     /// - `level`: 压缩级别，范围 1-16（1 最快，16 最高压缩率）
     ///
     /// # 说明
-    /// 当前基于 lz4_flex（纯 Rust 实现），仅支持快速压缩模式，
-    /// 级别参数不影响压缩结果，保留用于 API 兼容
+    /// 基于 liblz4 的 HC 编码器（lz4 crate，C 实现内置于依赖中）。
+    /// 级别 1-16：级别越高压缩率越好但越慢；超过 16 钳制为 16。
+    /// 输出是标准 LZ4 frame，`decompress` 可用任意兼容解码器读取。
     ///
     /// # 错误
     /// 如果压缩失败，返回 `std::io::Error`
@@ -64,10 +57,14 @@ impl Lz4 {
     /// assert_eq!(decompressed, data);
     /// ```
     pub fn compress_with_level(data: &[u8], level: u32) -> Result<Vec<u8>, Error> {
-        let _ = level;
-        let mut encoder = FrameEncoder::new(Vec::new());
+        // liblz4: 0 = fast；1..=16 = HC（越高压缩率越好）；>16 由 C 层钳制，这里显式钳制使行为确定
+        let mut encoder = lz4::EncoderBuilder::new()
+            .level(level.min(16))
+            .build(Vec::new())?;
         encoder.write_all(data)?;
-        encoder.finish().map_err(to_io_error)
+        let (compressed, result) = encoder.finish();
+        result?;
+        Ok(compressed)
     }
 
     /// 解压数据

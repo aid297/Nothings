@@ -185,10 +185,9 @@ impl<T> AnySlice<T> {
     where
         T: Clone,
     {
-        self.to_vec().clone().shuffle(&mut rand::rng());
-        AnySlice {
-            data: self.to_vec().clone(),
-        }
+        let mut data = self.to_vec().clone();
+        data.shuffle(&mut rand::rng());
+        AnySlice { data }
     }
 
     pub fn shuffle_self(&mut self) -> &mut Self {
@@ -344,8 +343,17 @@ impl<T> AnySlice<T> {
         self
     }
 
+    #[allow(clippy::ptr_arg)]
+    // 保持既有公开签名 &Vec<usize>，避免破坏性 API 变更
     pub fn remove_by_indexes(&mut self, indexes: &Vec<usize>) -> &mut Self {
-        let _ = indexes.iter().map(|index| self.data.remove(*index));
+        // 按「原始索引」保留，避免 Vec::remove 引起的索引位移；
+        // into_iter 直接搬移元素，不给 T 增加 Clone 约束。
+        self.data = std::mem::take(&mut self.data)
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| !indexes.contains(i))
+            .map(|(_, item)| item)
+            .collect();
         self
     }
 

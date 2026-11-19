@@ -1,4 +1,4 @@
-pub(crate) trait Singleton: Sized {
+pub trait Singleton: Sized {
     fn with<F, R>(f: F) -> R
     where
         F: FnOnce(&mut Self) -> R;

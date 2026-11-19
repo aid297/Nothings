@@ -2,51 +2,12 @@
 
 `singletons` 模块提供 `impl_singleton!` 宏，为任意类型一键生成「全局唯一实例 + 带锁访问」的三件套接口。
 
-## ⚠️ 当前状态：外部 crate 无法使用
+## 状态
 
-宏展开时会引用 `$crate::singletons::app::Singleton`，而这个 trait 被声明为 `pub(crate)`：
+外部 crate 可用。`Singleton` trait 已声明为 `pub`，`impl_singleton!` 在任意 crate 中展开均可编译。
+跨 crate 回归守护见 `tests/singletons.rs`（该测试在修复前会因 E0603 编译失败）。
 
-```rust
-pub(crate) trait Singleton: Sized {
-    fn with<F, R>(f: F) -> R
-    where
-        F: FnOnce(&mut Self) -> R;
-}
-```
-
-结果是在 `nothings` 之外的任何 crate 里调用 `impl_singleton!` 都会**编译失败**，实测错误：
-
-```text
-error[E0603]: trait `Singleton` is private
- --> examples/probe.rs:9:1
-  |
-9 | impl_singleton!(Counter);
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^ private trait
-  |
-note: the trait `Singleton` is defined here
- --> src/singletons/app.rs:1:1
-  |
-1 | pub(crate) trait Singleton: Sized {
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-```
-
-注意报错发生在**宏展开处**，所以整个宏都失效——不只是 `with()` 用不了，连 `instance()` 和 `default()` 也不会被生成。
-
-模块内部的单元测试（`src/singletons/test.rs`）能通过，是因为它们和 trait 在同一个 crate 里。
-
-### 修复方式
-
-把 `src/singletons/app.rs:1` 的可见性放宽一行即可：
-
-```rust
-pub trait Singleton: Sized {   // 原为 pub(crate)
-```
-
-在修复发布之前，请用下面「替代写法」小节的手写版本。
-
-## 宏的用法（修复后 / crate 内部）
-
-<!-- doccheck:skip —— 依赖 pub(crate) 的 Singleton trait，当前版本在外部 crate 编译失败，此处展示的是修复后的形态 -->
+## 宏的用法
 
 ```rust
 use nothings::impl_singleton;
@@ -151,9 +112,9 @@ match Counter::instance().lock() {
 
 要么用 `cargo test -- --test-threads=1`，要么在断言里避开对初始值的依赖。
 
-## 替代写法
+## 手写等价写法
 
-在宏修好之前，直接手写展开结果即可，语义完全一致（下面这段已实测可编译运行）：
+若不想用宏，可以直接手写展开结果，语义完全一致（下面这段已实测可编译运行）：
 
 ```rust
 use std::sync::{Mutex, OnceLock};

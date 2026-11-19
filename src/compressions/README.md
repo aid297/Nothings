@@ -9,13 +9,13 @@
 
 | 算法 | 导入路径 | 级别范围 | 默认级别 | 文档 |
 |------|----------|----------|----------|------|
-| **Lz4** | `nothings::compressions::lz4::app::Lz4` | 1-16（⚠️ 不生效） | 1 | [README](lz4/README.md) |
+| **Lz4** | `nothings::compressions::lz4::app::Lz4` | 1-16（HC，>16 钳 16） | 1 | [README](lz4/README.md) |
 | **Zlib** | `nothings::compressions::zlib::app::Zlib` | 0-9 | 6 | [README](zlib/README.md) |
 | **Zstd** | `nothings::compressions::zstd4::app::Zstd` | 1-21 | 3 | [README](zstd4/README.md) |
 
 三者接口完全一致：`compress` / `compress_with_level` / `decompress` / `compress_file` / `decompress_file` / `compression_ratio`，全部是**关联函数**（不需要先构造实例）。
 
-`Zstd` 依赖 C 绑定，需要原生工具链。
+`Lz4`（压缩端 liblz4 HC）与 `Zstd` 依赖 C 绑定，需要原生工具链；两者的 C 源码均由依赖内置，无需系统库。
 
 ## Compressor trait
 
@@ -35,7 +35,7 @@ pub trait Compressor {
 | 函数 | 签名 | 说明 |
 |------|------|------|
 | `with_lz4()` | `-> Box<dyn Compressor>` | LZ4，默认级别 1 |
-| `with_lz4_level(level)` | `u32 -> Box<dyn Compressor>` | LZ4，级别 1-16（⚠️ 不生效，见「已知问题」） |
+| `with_lz4_level(level)` | `u32 -> Box<dyn Compressor>` | LZ4，级别 1-16（HC，>16 钳 16） |
 | `with_zlib()` | `-> Box<dyn Compressor>` | zlib，默认级别 6 |
 | `with_zlib_level(level)` | `u32 -> Box<dyn Compressor>` | zlib，级别 0-9 |
 | `with_zstd()` | `-> Box<dyn Compressor>` | Zstd，默认级别 3 |
@@ -123,4 +123,4 @@ let _ = File::unzip("data.zst", "data.out", compressions::with_zstd().as_ref()).
 
 | 问题 | 说明 |
 |------|------|
-| `with_lz4_level(level)` 的 `level` 不影响输出 | 底层 lz4_flex 只实现了快速压缩模式。实测级别 1 与级别 16 的输出**逐字节相同**。参数仅为 API 兼容保留，需要更高压缩率请改用 Zstd 或 Zlib |
+| `File::write` / `Dir::zip` 全量覆盖 | 没有追加模式，见 filesystem README |

@@ -691,3 +691,48 @@ fn test_to_string_single() {
     let slice = AnySlice::new(vec![42]);
     assert_eq!(slice.to_string(Some("-")), "42");
 }
+
+// ─────────────────────────────────────────────
+// remove_by_indexes（A1 回归：惰性迭代器未消费）
+// ─────────────────────────────────────────────
+
+#[test]
+fn test_remove_by_indexes_removes_selected() {
+    let mut slice = AnySlice::new(vec![10, 20, 30, 40, 50]);
+    slice.remove_by_indexes(&vec![0, 2]);
+    assert_eq!(*slice.to_vec(), vec![20, 40, 50]);
+}
+
+#[test]
+fn test_remove_by_indexes_edge_cases() {
+    // 重复索引幂等、越界忽略、乱序安全
+    let mut slice = AnySlice::new(vec![10, 20, 30, 40, 50]);
+    slice.remove_by_indexes(&vec![2, 2, 99, 4, 0]);
+    assert_eq!(*slice.to_vec(), vec![20, 40]);
+
+    // 空索引集保持原样
+    let mut slice = AnySlice::new(vec![1, 2, 3]);
+    slice.remove_by_indexes(&vec![]);
+    assert_eq!(*slice.to_vec(), vec![1, 2, 3]);
+}
+
+// ─────────────────────────────────────────────
+// shuffle（A3 回归：打乱临时克隆）
+// ─────────────────────────────────────────────
+
+#[test]
+fn test_shuffle_returns_actually_shuffled_copy() {
+    let original = vec![1u8, 2, 3, 4, 5, 6, 7, 8];
+    let slice = AnySlice::new(original.clone());
+
+    // 8! = 40320，单次与原价相同的概率极低；32 次全相同可视为不可能
+    let mut changed = false;
+    for _ in 0..32 {
+        if slice.shuffle().get_data() != original {
+            changed = true;
+            break;
+        }
+    }
+    assert!(changed, "shuffle() 必须返回被打乱的副本");
+    assert_eq!(slice.get_data(), original, "shuffle() 不得修改原 slice");
+}
