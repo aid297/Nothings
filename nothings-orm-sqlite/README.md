@@ -1,6 +1,6 @@
 # nothings-orm-sqlite — SQLite 驱动
 
-对标 Go 的 `gorm.io/driver/mysql`：实现 `nothings_orm::Driver`，把 SQLite 接到 ORM 核心上。
+对标 Go 的 `gorm.io/driver/mysql`：实现 `nothings_orm::NOrmDriver`，把 SQLite 接到 ORM 核心上。
 
 - 版本：0.0.1
 - edition：2024
@@ -18,19 +18,19 @@
 ## 用法
 
 ```rust
-use nothings_orm::repository::Repository;
-use nothings_orm::value::Value;
-use nothings_orm_sqlite::SqliteDriver;
+use nothings_orm::repository::NOrmRepository;
+use nothings_orm::value::NOrmValue;
+use nothings_orm_sqlite::NOrmSqliteDriver;
 
-let mut driver = SqliteDriver::open("app.db").unwrap();
+let mut driver = NOrmSqliteDriver::open("app.db").unwrap();
 driver.execute_batch("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)").unwrap();
 
-let mut repo = Repository::new(&mut driver);
+let mut repo = NOrmRepository::new(&mut driver);
 // repo.insert::<User>(&user)?;
-// let user = repo.get::<User>(Value::I64(1))?;
+// let user = repo.get::<User>(NOrmValue::I64(1))?;
 ```
 
-测试用内存库：`SqliteDriver::in_memory()`。
+测试用内存库：`NOrmSqliteDriver::in_memory()`。
 
 ## 错误映射
 
@@ -47,5 +47,5 @@ let mut repo = Repository::new(&mut driver);
 ## 已知边界
 
 - `execute_batch` 直接执行原始 SQL，仅供 DDL 与测试使用，不经过参数化。不要传用户输入。
-- 一条连接对应一个 `SqliteDriver`；并发场景需要每个线程一个实例（连接池在 YAGNI 清单）。
-- `query` 会把结果全部物化为 `OwnedRow`，大结果集内存开销线性增长。
+- 一条连接对应一个 `NOrmSqliteDriver`；并发场景需要每个线程一个实例（连接池在 YAGNI 清单）。
+- `query` 会把结果全部物化为 `NOrmOwnedRow`，大结果集内存开销线性增长。

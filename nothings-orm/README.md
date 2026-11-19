@@ -12,23 +12,24 @@
 完整设计见 [`../docs/ai/spec/50-orm-design.md`](../docs/ai/spec/50-orm-design.md)。
 
 ```
-Value / SqlType        数据库值的运行时表示与静态 SQL 类型标签
-Row / OwnedRow         结果集行的抽象与 owned 实现
-Schema / Column        静态表结构（由 #[derive(Entity)] 生成）
-Entity                 行 → 结构体、按列名取值（由宏生成）
-Driver                 数据库后端抽象（execute/query/事务）
-Repository             CRUD + 事务的泛型入口
-QueryBuilder           链式 where/order/limit/offset，列名白名单校验
+NOrmValue / NOrmSqlType        数据库值的运行时表示与静态 SQL 类型标签
+NOrmRow / NOrmOwnedRow         结果集行的抽象与 owned 实现
+NOrmSchema / NOrmColumn        静态表结构（由 #[derive(NOrmEntity)] 生成）
+NOrmEntity                 行 → 结构体、按列名取值（由宏生成）
+NOrmDriver                 数据库后端抽象（execute/query/事务）
+NOrmRepository             CRUD + 事务的泛型入口
+NOrmQueryBuilder           链式 where/order/limit/offset，列名白名单校验
+NOrmCondition / NOrmOperator   条件树：AND/OR/NOT/分组 + 比较运算，值全部 ? 参数化
 ```
 
 ## 快速开始
 
-`Driver` 由具体驱动实现（见 `nothings-orm-sqlite`）。核心 crate 只提供 trait 与派生宏。
+`NOrmDriver` 由具体驱动实现（见 `nothings-orm-sqlite`）。核心 crate 只提供 trait 与派生宏。
 
 ```rust
-use nothings_orm::{Entity, Schema};
+use nothings_orm::{NOrmEntity, NOrmSchema};
 
-#[derive(Entity)]
+#[derive(NOrmEntity)]
 #[entity(table = "users")]
 struct User {
     #[entity(primary_key, column = "id")]
@@ -42,6 +43,33 @@ struct User {
 assert_eq!(User::TABLE, "users");
 assert_eq!(User::COLUMNS.len(), 3);
 ```
+
+## 条件构建
+
+链式方法按调用顺序**从左到右**结合（左折叠）：每个方法用自身携带的连接词把新条件接到已累积条件上，构建器不按 SQL 优先级重排；渲染器用最小括号忠实还原该顺序。
+
+```rust
+use nothings_orm::condition::{NOrmCondition, NOrmOperator};
+
+// (id = ? OR user_name = ?) AND id > ?
+repo.query::<User>()
+    .r#where("id", 1i64)
+    .or_where("user_name", "alice")
+    .where_op("id", NOrmOperator::Gt, 10i64)
+    .all()?;
+
+// (id > ? OR user_name = ?) AND NOT (email IS NULL)
+let cond = NOrmCondition::<User>::gt("id", 10i64)
+    .or(NOrmCondition::eq("user_name", "alice"))
+    .and(!NOrmCondition::is_null("email"));
+repo.query::<User>().where_condition(cond).all()?;
+```
+
+链式入口：`r#where` / `and_where` / `or_where` / `not_where`（等值），`where_op` / `or_where_op`（比较运算），`where_condition` / `or_where_condition` / `not_where_condition`（整树注入）。
+
+`NOrmCondition` 构造器：`eq` / `ne` / `gt` / `ge` / `lt` / `le` / `like` / `not_like` / `cmp`（单值），`in_list` / `not_in_list`（多值），`is_null` / `is_not_null`（无值）；组合器 `and` / `or` / `group`，取反用 `!` 运算符（实现 `std::ops::Not`）。
+
+边界：首项 `or_where` 退化为裸首项；`IN` 空列表折叠为 `0 = 1` / `1 = 1`；LIKE 通配符由调用方提供；独立构造 `NOrmCondition` 时需写 `NOrmCondition::<User>::...`（参数里不含实体类型）。
 
 ## 属性语法
 
@@ -69,6 +97,7 @@ assert_eq!(User::COLUMNS.len(), 3);
 
 - 所有值走 `?` 占位符 + params 参数化，禁止 SQL 拼接。
 - 列名/表名不能参数化，必须在 `E::COLUMNS` 白名单内，否则 `InvalidInput`。
+- 比较运算符来自 `NOrmOperator` 枚举白名单；`IS NULL` 不接参数，`IN` 空列表折叠为常量。
 - 事务只支持单层，无 savepoint；`Err` 路径自动 rollback。
 
 ## 日期时间与时区
@@ -77,21 +106,21 @@ assert_eq!(User::COLUMNS.len(), 3);
 
 | 类型 | 说明 |
 | --- | --- |
-| `UtcOffset` | 固定 UTC 偏移，`UtcOffset::parse("+08:00")` / `UtcOffset::UTC`；无 DST |
-| `DateTime` | 墙钟日期时间，`DateTime::new(...)` / `DateTime::parse(...)` / `from_unix_secs(secs, offset)` |
+| `NOrmUtcOffset` | 固定 UTC 偏移，`NOrmUtcOffset::parse("+08:00")` / `NOrmUtcOffset::UTC`；无 DST |
+| `NOrmDateTime` | 墙钟日期时间，`NOrmDateTime::new(...)` / `NOrmDateTime::parse(...)` / `from_unix_secs(secs, offset)` |
 
-`Value` 新增 `DateTime(DateTime)` 变体，作为「这是需要时区转换的时间」的类型标记。`DateTime` 实现 `ToValue` / `FromValue` / `HasSqlType`（`SQL_TYPE = Text`），可直接作实体字段：
+`NOrmValue` 新增 `NOrmDateTime(NOrmDateTime)` 变体，作为「这是需要时区转换的时间」的类型标记。`NOrmDateTime` 实现 `NOrmToValue` / `NOrmFromValue` / `NOrmHasSqlType`（`SQL_TYPE = Text`），可直接作实体字段：
 
 ```rust
-use nothings_orm::value::DateTime;
-// struct Event { #[entity(primary_key)] id: i64, at: DateTime }
+use nothings_orm::value::NOrmDateTime;
+// struct Event { #[entity(primary_key)] id: i64, at: NOrmDateTime }
 ```
 
 转换由驱动的连接时区配置负责（`nothings-orm-mysql` 的 `connect_with_tz`）；`i64` Unix 时间戳不参与转换。派生宏生成的方法不进 JSON，以上 API 须看本节或 `docs/orm-cookbook.md`。
 
 ## 生成器盲区
 
-`docs/ai/open-api/public-api.json` 由 `docs/ai/tools/gen_api_index.py` 从源码文本提取，**不展开过程宏**。`#[derive(Entity)]` 生成的方法（`Schema::TABLE/COLUMNS/pk`、`Entity::from_row/pk_value/column_value`）不会出现在 JSON 中。查这些 API 请直接看本页与 `spec/50`。
+`docs/ai/open-api/public-api.json` 由 `docs/ai/tools/gen_api_index.py` 从源码文本提取，**不展开过程宏**。`#[derive(NOrmEntity)]` 生成的方法（`NOrmSchema::TABLE/COLUMNS/pk`、`NOrmEntity::from_row/pk_value/column_value`）不会出现在 JSON 中。查这些 API 请直接看本页与 `spec/50`。
 
 ## 不做
 

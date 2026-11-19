@@ -45,7 +45,7 @@
 - 修掉一个已知缺陷：从 `spec/30-known-issues.md` 移除条目，同步根 `README.md` 的已知问题表、对应模块 README，并更新脚本里的状态标注。
 - 版本号变更：`spec/00-overview.md` 的版本表、`public-api.json` 的 `crates[]`（脚本读各 `Cargo.toml`，自动生效）必须一起更新。
 - 新增独立 crate：把新源根加进 `tools/gen_api_index.py` 的 `SOURCE_ROOTS`，把 manifest 加进 `MANIFESTS`，否则契约会静默漏收。
-- 派生宏生成的方法不进 JSON（生成器只扫源码文本，不展开宏）。`#[derive(Entity)]` 生成的 `Schema` / `Entity` 方法要在 crate README 里显式列出。
+- 派生宏生成的方法不进 JSON（生成器只扫源码文本，不展开宏）。`#[derive(NOrmEntity)]` 生成的 `NOrmSchema` / `NOrmEntity` 方法要在 crate README 里显式列出。
 - 不要在这里复制教程式示例。示例留在各模块 README，避免两份文档漂移。
 
 ## 漂移自检

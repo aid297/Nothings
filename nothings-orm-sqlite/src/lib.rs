@@ -1,22 +1,22 @@
-//! SQLite 驱动：rusqlite(bundled) 实现 nothings_orm::Driver。
+//! SQLite 驱动：rusqlite(bundled) 实现 nothings_orm::NOrmDriver。
 //!
 //! 每个 crate 都是 `crate-type = ["lib"]`，SQLite 的 C 代码不会进入其它产物。
 
 use std::io::{Error, ErrorKind};
 
-use nothings_orm::driver::Driver;
-use nothings_orm::row::OwnedRow;
-use nothings_orm::value::Value;
+use nothings_orm::driver::NOrmDriver;
+use nothings_orm::row::NOrmOwnedRow;
+use nothings_orm::value::NOrmValue;
 use rusqlite::params_from_iter;
 use rusqlite::types::{Value as SqlValue, ValueRef};
 use rusqlite::{Connection, ErrorCode};
 
 /// SQLite 驱动，持有一条连接。
-pub struct SqliteDriver {
+pub struct NOrmSqliteDriver {
     conn: Connection,
 }
 
-impl SqliteDriver {
+impl NOrmSqliteDriver {
     /// 打开（或创建）数据库文件。
     pub fn open(path: &str) -> Result<Self, Error> {
         Connection::open(path).map(|conn| Self { conn }).map_err(to_io)
@@ -64,43 +64,43 @@ fn to_io(err: rusqlite::Error) -> Error {
     }
 }
 
-fn from_sql(value: ValueRef<'_>) -> Result<Value, Error> {
+fn from_sql(value: ValueRef<'_>) -> Result<NOrmValue, Error> {
     match value {
-        ValueRef::Null => Ok(Value::Null),
-        ValueRef::Integer(n) => Ok(Value::I64(n)),
-        ValueRef::Real(n) => Ok(Value::F64(n)),
+        ValueRef::Null => Ok(NOrmValue::Null),
+        ValueRef::Integer(n) => Ok(NOrmValue::I64(n)),
+        ValueRef::Real(n) => Ok(NOrmValue::F64(n)),
         ValueRef::Text(bytes) => std::str::from_utf8(bytes)
-            .map(|s| Value::Text(s.to_string()))
+            .map(|s| NOrmValue::Text(s.to_string()))
             .map_err(|e| Error::new(ErrorKind::InvalidData, format!("非法 UTF-8 文本: {e}"))),
-        ValueRef::Blob(bytes) => Ok(Value::Blob(bytes.to_vec())),
+        ValueRef::Blob(bytes) => Ok(NOrmValue::Blob(bytes.to_vec())),
     }
 }
 
-fn to_sql(value: &Value) -> SqlValue {
+fn to_sql(value: &NOrmValue) -> SqlValue {
     match value {
-        Value::Null => SqlValue::Null,
-        Value::Bool(v) => SqlValue::Integer(i64::from(*v)),
-        Value::I64(v) => SqlValue::Integer(*v),
-        Value::F64(v) => SqlValue::Real(*v),
-        Value::Text(v) => SqlValue::Text(v.clone()),
-        Value::Blob(v) => SqlValue::Blob(v.clone()),
+        NOrmValue::Null => SqlValue::Null,
+        NOrmValue::Bool(v) => SqlValue::Integer(i64::from(*v)),
+        NOrmValue::I64(v) => SqlValue::Integer(*v),
+        NOrmValue::F64(v) => SqlValue::Real(*v),
+        NOrmValue::Text(v) => SqlValue::Text(v.clone()),
+        NOrmValue::Blob(v) => SqlValue::Blob(v.clone()),
         // SQLite 无列类型、无会话时区：按 ORM 墙钟原样写 TEXT。
-        Value::DateTime(v) => SqlValue::Text(v.to_string()),
+        NOrmValue::NOrmDateTime(v) => SqlValue::Text(v.to_string()),
     }
 }
 
-fn bound(values: &[Value]) -> Vec<SqlValue> {
+fn bound(values: &[NOrmValue]) -> Vec<SqlValue> {
     values.iter().map(to_sql).collect()
 }
 
-impl Driver for SqliteDriver {
-    fn execute(&mut self, sql: &str, values: &[Value]) -> Result<usize, Error> {
+impl NOrmDriver for NOrmSqliteDriver {
+    fn execute(&mut self, sql: &str, values: &[NOrmValue]) -> Result<usize, Error> {
         self.conn
             .execute(sql, params_from_iter(bound(values)))
             .map_err(to_io)
     }
 
-    fn query(&mut self, sql: &str, values: &[Value]) -> Result<Vec<OwnedRow>, Error> {
+    fn query(&mut self, sql: &str, values: &[NOrmValue]) -> Result<Vec<NOrmOwnedRow>, Error> {
         let mut stmt = self.conn.prepare(sql).map_err(to_io)?;
         let names = stmt
             .column_names()
@@ -116,7 +116,7 @@ impl Driver for SqliteDriver {
             for i in 0..names.len() {
                 values.push(from_sql(row.get_ref(i).map_err(to_io)?)?);
             }
-            result.push(OwnedRow::new(names.clone(), values));
+            result.push(NOrmOwnedRow::new(names.clone(), values));
         }
         Ok(result)
     }
@@ -144,18 +144,18 @@ mod test {
 
     #[test]
     fn test_to_sql() {
-        assert_eq!(to_sql(&Value::I64(1)), SqlValue::Integer(1));
-        assert_eq!(to_sql(&Value::Bool(true)), SqlValue::Integer(1));
-        assert_eq!(to_sql(&Value::Null), SqlValue::Null);
+        assert_eq!(to_sql(&NOrmValue::I64(1)), SqlValue::Integer(1));
+        assert_eq!(to_sql(&NOrmValue::Bool(true)), SqlValue::Integer(1));
+        assert_eq!(to_sql(&NOrmValue::Null), SqlValue::Null);
     }
 
     #[test]
     fn test_in_memory() {
-        let mut driver = SqliteDriver::in_memory().unwrap();
+        let mut driver = NOrmSqliteDriver::in_memory().unwrap();
         driver.execute_batch("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)").unwrap();
-        assert_eq!(driver.execute("INSERT INTO t (name) VALUES (?)", &[Value::Text("x".into())]).unwrap(), 1);
+        assert_eq!(driver.execute("INSERT INTO t (name) VALUES (?)", &[NOrmValue::Text("x".into())]).unwrap(), 1);
         let rows = driver.query("SELECT id, name FROM t", &[]).unwrap();
         assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].values()[1], Value::Text("x".into()));
+        assert_eq!(rows[0].values()[1], NOrmValue::Text("x".into()));
     }
 }

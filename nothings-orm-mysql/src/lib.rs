@@ -1,4 +1,4 @@
-//! MySQL 驱动：mysql(minimal-rust) 实现 nothings_orm::Driver。
+//! MySQL 驱动：mysql(minimal-rust) 实现 nothings_orm::NOrmDriver。
 //!
 //! 每个 crate 都是 `crate-type = ["lib"]`，MySQL 客户端不会进入其它产物。
 
@@ -10,25 +10,25 @@ use mysql::{
     Column, Conn, DriverError, Error as MysqlError, Opts, OptsBuilder, Params, ServerError,
     Value as MysqlValue,
 };
-use nothings_orm::driver::Driver;
-use nothings_orm::row::OwnedRow;
-use nothings_orm::value::{DateTime, UtcOffset, Value};
+use nothings_orm::driver::NOrmDriver;
+use nothings_orm::row::NOrmOwnedRow;
+use nothings_orm::value::{NOrmDateTime, NOrmUtcOffset, NOrmValue};
 
 /// MySQL 驱动，持有一条同步连接；并发场景每线程一个实例。
-pub struct MysqlDriver {
+pub struct NOrmMysqlDriver {
     conn: Conn,
-    orm_tz: UtcOffset,
-    db_tz: UtcOffset,
+    orm_tz: NOrmUtcOffset,
+    db_tz: NOrmUtcOffset,
 }
 
-impl MysqlDriver {
+impl NOrmMysqlDriver {
     /// 用 `mysql://user:pass@host:port/db` 建立连接，ORM 与 DB 时区均为 UTC（不做转换）。
     pub fn connect(url: &str) -> Result<Self, Error> {
         Conn::new(url)
             .map(|conn| Self {
                 conn,
-                orm_tz: UtcOffset::UTC,
-                db_tz: UtcOffset::UTC,
+                orm_tz: NOrmUtcOffset::UTC,
+                db_tz: NOrmUtcOffset::UTC,
             })
             .map_err(to_io)
     }
@@ -40,8 +40,8 @@ impl MysqlDriver {
     /// DSN 不支持 `?timezone=` 参数（会报 `UrlError::UnknownParameter`）。
     pub fn connect_with_tz(
         url: &str,
-        orm_tz: UtcOffset,
-        db_tz: UtcOffset,
+        orm_tz: NOrmUtcOffset,
+        db_tz: NOrmUtcOffset,
     ) -> Result<Self, Error> {
         let opts = Opts::from_url(url).map_err(|e| {
             Error::new(ErrorKind::InvalidInput, format!("MySQL 连接 URL 非法: {e}"))
@@ -119,16 +119,16 @@ fn to_io(err: MysqlError) -> Error {
     }
 }
 
-fn to_sql(value: &Value, orm_tz: &UtcOffset, db_tz: &UtcOffset) -> MysqlValue {
+fn to_sql(value: &NOrmValue, orm_tz: &NOrmUtcOffset, db_tz: &NOrmUtcOffset) -> MysqlValue {
     match value {
-        Value::Null => MysqlValue::NULL,
-        Value::Bool(v) => MysqlValue::Int(i64::from(*v)),
-        Value::I64(v) => MysqlValue::Int(*v),
-        Value::F64(v) => MysqlValue::Double(*v),
-        Value::Text(v) => MysqlValue::Bytes(v.as_bytes().to_vec()),
-        Value::Blob(v) => MysqlValue::Bytes(v.clone()),
+        NOrmValue::Null => MysqlValue::NULL,
+        NOrmValue::Bool(v) => MysqlValue::Int(i64::from(*v)),
+        NOrmValue::I64(v) => MysqlValue::Int(*v),
+        NOrmValue::F64(v) => MysqlValue::Double(*v),
+        NOrmValue::Text(v) => MysqlValue::Bytes(v.as_bytes().to_vec()),
+        NOrmValue::Blob(v) => MysqlValue::Bytes(v.clone()),
         // 写侧类型标记明确，无需列名或列类型上下文。
-        Value::DateTime(dt) => {
+        NOrmValue::NOrmDateTime(dt) => {
             let db_wall = dt.shifted_minutes(db_tz.diff_minutes(orm_tz));
             MysqlValue::Date(
                 db_wall.year() as u16,
@@ -143,7 +143,7 @@ fn to_sql(value: &Value, orm_tz: &UtcOffset, db_tz: &UtcOffset) -> MysqlValue {
     }
 }
 
-fn bound(values: &[Value], orm_tz: &UtcOffset, db_tz: &UtcOffset) -> Params {
+fn bound(values: &[NOrmValue], orm_tz: &NOrmUtcOffset, db_tz: &NOrmUtcOffset) -> Params {
     values
         .iter()
         .map(|v| to_sql(v, orm_tz, db_tz))
@@ -205,56 +205,56 @@ fn time_to_text(neg: bool, days: u32, h: u8, mi: u8, s: u8, us: u32) -> String {
 fn from_value(
     value: Option<&MysqlValue>,
     col: &Column,
-    orm_tz: &UtcOffset,
-    db_tz: &UtcOffset,
-) -> Result<Value, Error> {
+    orm_tz: &NOrmUtcOffset,
+    db_tz: &NOrmUtcOffset,
+) -> Result<NOrmValue, Error> {
     let value = value.ok_or_else(|| {
         Error::new(ErrorKind::InvalidInput, "结果集缺少列值")
     })?;
     match value {
-        MysqlValue::NULL => Ok(Value::Null),
-        MysqlValue::Int(n) => Ok(Value::I64(*n)),
-        MysqlValue::UInt(n) => i64::try_from(*n).map(Value::I64).map_err(|_| {
+        MysqlValue::NULL => Ok(NOrmValue::Null),
+        MysqlValue::Int(n) => Ok(NOrmValue::I64(*n)),
+        MysqlValue::UInt(n) => i64::try_from(*n).map(NOrmValue::I64).map_err(|_| {
             Error::new(
                 ErrorKind::InvalidData,
                 format!("无符号整数 {n} 超出 i64 范围"),
             )
         }),
-        MysqlValue::Float(f) => Ok(Value::F64(f64::from(*f))),
-        MysqlValue::Double(f) => Ok(Value::F64(*f)),
+        MysqlValue::Float(f) => Ok(NOrmValue::F64(f64::from(*f))),
+        MysqlValue::Double(f) => Ok(NOrmValue::F64(*f)),
         MysqlValue::Bytes(bytes) => {
             if is_binary(col) {
-                Ok(Value::Blob(bytes.clone()))
+                Ok(NOrmValue::Blob(bytes.clone()))
             } else {
-                String::from_utf8(bytes.clone()).map(Value::Text).map_err(|e| {
+                String::from_utf8(bytes.clone()).map(NOrmValue::Text).map_err(|e| {
                     Error::new(ErrorKind::InvalidData, format!("非法 UTF-8 文本: {e}"))
                 })
             }
         }
         MysqlValue::Date(y, mo, d, h, mi, s, us) => {
             match col.column_type() {
-                // 完整墙钟：统一返回 DateTime，DB → ORM 换算。
+                // 完整墙钟：统一返回 NOrmDateTime，DB → ORM 换算。
                 ColumnType::MYSQL_TYPE_TIMESTAMP
                 | ColumnType::MYSQL_TYPE_TIMESTAMP2
                 | ColumnType::MYSQL_TYPE_DATETIME
                 | ColumnType::MYSQL_TYPE_DATETIME2 => {
-                    let db_wall = DateTime::new(
+                    let db_wall = NOrmDateTime::new(
                         i32::from(*y), *mo, *d, *h, *mi, *s, *us,
                     )?;
-                    Ok(Value::DateTime(db_wall.shifted_minutes(orm_tz.diff_minutes(db_tz))))
+                    Ok(NOrmValue::NOrmDateTime(db_wall.shifted_minutes(orm_tz.diff_minutes(db_tz))))
                 }
                 // DATE / TIME / YEAR 无完整墙钟，维持文本。
-                _ => Ok(Value::Text(date_to_text(*y, *mo, *d, *h, *mi, *s, *us))),
+                _ => Ok(NOrmValue::Text(date_to_text(*y, *mo, *d, *h, *mi, *s, *us))),
             }
         }
-        MysqlValue::Time(neg, days, h, mi, s, us) => Ok(Value::Text(time_to_text(
+        MysqlValue::Time(neg, days, h, mi, s, us) => Ok(NOrmValue::Text(time_to_text(
             *neg, *days, *h, *mi, *s, *us,
         ))),
     }
 }
 
-impl Driver for MysqlDriver {
-    fn execute(&mut self, sql: &str, values: &[Value]) -> Result<usize, Error> {
+impl NOrmDriver for NOrmMysqlDriver {
+    fn execute(&mut self, sql: &str, values: &[NOrmValue]) -> Result<usize, Error> {
         // exec_drop 会丢弃 QueryResult 并触发其 Drop 消费结果集，
         // 之后才能读 conn.affected_rows()（QueryResult 持有 &mut Conn）。
         self.conn
@@ -265,7 +265,7 @@ impl Driver for MysqlDriver {
         })
     }
 
-    fn query(&mut self, sql: &str, values: &[Value]) -> Result<Vec<OwnedRow>, Error> {
+    fn query(&mut self, sql: &str, values: &[NOrmValue]) -> Result<Vec<NOrmOwnedRow>, Error> {
         // 带 ? 参数必须走二进制协议（prepared statement）；query_iter 不接受 params。
         let params = bound(values, &self.orm_tz, &self.db_tz);
         let result_set = self.conn.exec_iter(sql, params).map_err(to_io)?;
@@ -282,7 +282,7 @@ impl Driver for MysqlDriver {
             for (i, col) in columns.iter().enumerate() {
                 row_values.push(from_value(fields.get(i), col, &self.orm_tz, &self.db_tz)?);
             }
-            rows.push(OwnedRow::new(names.clone(), row_values));
+            rows.push(NOrmOwnedRow::new(names.clone(), row_values));
         }
         Ok(rows)
     }
@@ -314,45 +314,45 @@ mod test {
 
     #[test]
     fn test_to_sql() {
-        let utc = UtcOffset::UTC;
-        assert_eq!(to_sql(&Value::Null, &utc, &utc), MysqlValue::NULL);
-        assert_eq!(to_sql(&Value::Bool(true), &utc, &utc), MysqlValue::Int(1));
-        assert_eq!(to_sql(&Value::Bool(false), &utc, &utc), MysqlValue::Int(0));
-        assert_eq!(to_sql(&Value::I64(1), &utc, &utc), MysqlValue::Int(1));
-        assert_eq!(to_sql(&Value::F64(1.5), &utc, &utc), MysqlValue::Double(1.5));
+        let utc = NOrmUtcOffset::UTC;
+        assert_eq!(to_sql(&NOrmValue::Null, &utc, &utc), MysqlValue::NULL);
+        assert_eq!(to_sql(&NOrmValue::Bool(true), &utc, &utc), MysqlValue::Int(1));
+        assert_eq!(to_sql(&NOrmValue::Bool(false), &utc, &utc), MysqlValue::Int(0));
+        assert_eq!(to_sql(&NOrmValue::I64(1), &utc, &utc), MysqlValue::Int(1));
+        assert_eq!(to_sql(&NOrmValue::F64(1.5), &utc, &utc), MysqlValue::Double(1.5));
         assert_eq!(
-            to_sql(&Value::Text("x".into()), &utc, &utc),
+            to_sql(&NOrmValue::Text("x".into()), &utc, &utc),
             MysqlValue::Bytes(b"x".to_vec())
         );
         assert_eq!(
-            to_sql(&Value::Blob(vec![1, 2]), &utc, &utc),
+            to_sql(&NOrmValue::Blob(vec![1, 2]), &utc, &utc),
             MysqlValue::Bytes(vec![1, 2])
         );
     }
 
     #[test]
     fn test_to_sql_datetime_shift() {
-        let utc = UtcOffset::UTC;
-        let sh = UtcOffset::parse("+08:00").unwrap();
-        let dt = DateTime::new(2026, 1, 2, 9, 0, 0, 0).unwrap();
+        let utc = NOrmUtcOffset::UTC;
+        let sh = NOrmUtcOffset::parse("+08:00").unwrap();
+        let dt = NOrmDateTime::new(2026, 1, 2, 9, 0, 0, 0).unwrap();
         // ORM=UTC, DB=+08:00 → 写库墙钟 17:00
         assert_eq!(
-            to_sql(&Value::DateTime(dt.clone()), &utc, &sh),
+            to_sql(&NOrmValue::NOrmDateTime(dt.clone()), &utc, &sh),
             MysqlValue::Date(2026, 1, 2, 17, 0, 0, 0)
         );
         // ORM=+08:00, DB=UTC → 写库墙钟 01:00
         assert_eq!(
-            to_sql(&Value::DateTime(dt), &sh, &utc),
+            to_sql(&NOrmValue::NOrmDateTime(dt), &sh, &utc),
             MysqlValue::Date(2026, 1, 2, 1, 0, 0, 0)
         );
     }
 
     #[test]
     fn test_bound() {
-        let utc = UtcOffset::UTC;
+        let utc = NOrmUtcOffset::UTC;
         assert_eq!(bound(&[], &utc, &utc), Params::Empty);
         assert_eq!(
-            bound(&[Value::I64(7), Value::Null], &utc, &utc),
+            bound(&[NOrmValue::I64(7), NOrmValue::Null], &utc, &utc),
             Params::Positional(vec![MysqlValue::Int(7), MysqlValue::NULL])
         );
     }

@@ -4,8 +4,8 @@ use syn::{parse_macro_input, Data, DeriveInput, Fields};
 
 mod entity;
 
-/// ORM 实体的派生宏：生成 ::nothings_orm 的 Schema 与 Entity impl。
-#[proc_macro_derive(Entity, attributes(entity))]
+/// ORM 实体的派生宏：生成 ::nothings_orm 的 NOrmSchema 与 NOrmEntity impl。
+#[proc_macro_derive(NOrmEntity, attributes(entity))]
 pub fn derive_entity(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
     match entity::expand(parsed) {

@@ -1,10 +1,10 @@
-use nothings_orm::entity::Entity as EntityTrait;
-use nothings_orm::row::OwnedRow;
-use nothings_orm::schema::Schema;
-use nothings_orm::value::{SqlType, Value};
-use nothings_orm::Entity;
+use nothings_orm::entity::NOrmEntity as EntityTrait;
+use nothings_orm::row::NOrmOwnedRow;
+use nothings_orm::schema::NOrmSchema;
+use nothings_orm::value::{NOrmSqlType, NOrmValue};
+use nothings_orm::NOrmEntity;
 
-#[derive(Debug, Entity)]
+#[derive(Debug, NOrmEntity)]
 #[entity(table = "users")]
 struct User {
     #[entity(primary_key, column = "id")]
@@ -24,33 +24,33 @@ fn test_derive_schema() {
     assert!(User::COLUMNS[0].primary_key);
     assert_eq!(User::COLUMNS[1].name, "user_name");
     assert_eq!(User::COLUMNS[1].field, "name");
-    assert_eq!(User::COLUMNS[1].sql_type, SqlType::Text);
+    assert_eq!(User::COLUMNS[1].sql_type, NOrmSqlType::Text);
     assert!(User::COLUMNS[2].nullable);
     assert_eq!(User::pk().name, "id");
 }
 
 #[test]
 fn test_derive_from_row() {
-    let row = OwnedRow::new(
+    let row = NOrmOwnedRow::new(
         vec!["id".into(), "user_name".into(), "email".into()],
         vec![
-            Value::I64(7),
-            Value::Text("alice".into()),
-            Value::Text("a@example.com".into()),
+            NOrmValue::I64(7),
+            NOrmValue::Text("alice".into()),
+            NOrmValue::Text("a@example.com".into()),
         ],
     );
     let user = <User as EntityTrait>::from_row(&row).unwrap();
     assert_eq!(user.id, 7);
     assert_eq!(user.name, "alice");
     assert_eq!(user.email.as_deref(), Some("a@example.com"));
-    assert_eq!(user.pk_value(), Value::I64(7));
+    assert_eq!(user.pk_value(), NOrmValue::I64(7));
 }
 
 #[test]
 fn test_derive_from_row_nullable() {
-    let row = OwnedRow::new(
+    let row = NOrmOwnedRow::new(
         vec!["id".into(), "user_name".into(), "email".into()],
-        vec![Value::I64(8), Value::Text("bob".into()), Value::Null],
+        vec![NOrmValue::I64(8), NOrmValue::Text("bob".into()), NOrmValue::Null],
     );
     let user = <User as EntityTrait>::from_row(&row).unwrap();
     assert_eq!(user.email, None);
@@ -58,9 +58,9 @@ fn test_derive_from_row_nullable() {
 
 #[test]
 fn test_derive_missing_column() {
-    let row = OwnedRow::new(
+    let row = NOrmOwnedRow::new(
         vec!["id".into(), "user_name".into()],
-        vec![Value::I64(9), Value::Text("carol".into())],
+        vec![NOrmValue::I64(9), NOrmValue::Text("carol".into())],
     );
     let err = <User as EntityTrait>::from_row(&row).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);

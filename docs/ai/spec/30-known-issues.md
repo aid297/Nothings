@@ -44,15 +44,15 @@ A6 的修复只需把 `src/singletons/app.rs:1` 的 `pub(crate)` 改成 `pub`，
 | B18 | `singletons::with` | `.lock().unwrap()`，闭包 panic 导致锁中毒后所有调用永久 panic |
 | B23 | `AnyMap` / `AnySlice` 的 `*Trait` | `AnySliceTrait` / `AnyMapTrait` 只有声明没有实现，不要 `use`。`AnyMapTrait` 的 intended signature 为 `every -> bool` / `clean(&mut self) -> &mut Self`，与实体 `AnyMap::every`（A4，返回 `&Self`）不一致属已知状态 |
 | B24 | 集合运算 | `union` / `intersection` / `difference` 是 O(n·m) 线性查找 |
-| ORM1 | `QueryBuilder::r#where` / `order_by` | 列名不在 `E::COLUMNS` 白名单时，错误延后到 `all()` / `one()` / `count()` 才以 `InvalidInput` 抛出；构造查询时不报错 |
-| ORM2 | `Repository::transaction` | 只支持单层，嵌套返回 `InvalidInput`；`Err` 路径自动 rollback 且忽略 rollback 自身错误；无 savepoint |
-| ORM3 | `Entity` 名字冲突 | crate 根 `nothings_orm::Entity` 是派生宏，`nothings_orm::entity::Entity` 是 trait。调用 `from_row` / `pk_value` / `column_value` 需 `use nothings_orm::entity::Entity as EntityTrait` |
-| ORM4 | `SqliteDriver::execute_batch` | 直接执行原始 SQL，不参数化；仅供 DDL/测试，禁止传用户输入 |
-| ORM5 | 派生宏生成 API 不进 JSON | `public-api.json` 只扫源码文本，不展开过程宏；`Schema` / `Entity` 的生成方法需查 crate README |
+| ORM1 | `NOrmQueryBuilder` 的 where 系列 / `NOrmCondition` 叶子 / `order_by` | 列名不在 `E::COLUMNS` 白名单时，错误延后到 `all()` / `one()` / `count()` 才以 `InvalidInput` 抛出；构造查询时不报错。错误文本不含内部哨兵前缀 |
+| ORM2 | `NOrmRepository::transaction` | 只支持单层，嵌套返回 `InvalidInput`；`Err` 路径自动 rollback 且忽略 rollback 自身错误；无 savepoint |
+| ORM3 | `NOrmEntity` 名字冲突 | crate 根 `nothings_orm::NOrmEntity` 是派生宏，`nothings_orm::entity::NOrmEntity` 是 trait。调用 `from_row` / `pk_value` / `column_value` 需 `use nothings_orm::entity::NOrmEntity as EntityTrait` |
+| ORM4 | `NOrmSqliteDriver::execute_batch` | 直接执行原始 SQL，不参数化；仅供 DDL/测试，禁止传用户输入 |
+| ORM5 | 派生宏生成 API 不进 JSON | `public-api.json` 只扫源码文本，不展开过程宏；`NOrmSchema` / `NOrmEntity` 的生成方法需查 crate README |
 | MYSQL1 | `nothings-orm-mysql` 保留字列名 | core 裸拼接标识符、不加反引号，`E::TABLE` / `E::COLUMNS` 不得使用 MySQL 保留字（`order` / `key` / `group` / `desc` / `rank` …），否则 1064；DDL 列名与 `#[entity(column = ...)]` 必须字面一致（宏按列名大小写敏感精确匹配） |
-| MYSQL2 | `QueryBuilder::offset()` 单独调用 | 会生成 `SELECT ... OFFSET n`，MySQL 报 1064（SQLite 允许）。必须搭配 `limit()`；`one()` 自带 `limit(1)`，`get` / `find_one` 不受影响 |
-| MYSQL3 | `MysqlDriver::query` 的列名/别名 | 必须原样保留 `COUNT(*) AS __count`，且 `COUNT(*)` 映射为 `Value::I64`；core 的 `count()` 精确匹配列名 `__count`，`to_i64()` 不接受其它变体 |
-| MYSQL4 | MySQL 类型降级 | `Value` 只有六种变体：DATETIME / DATE / TIME / DECIMAL / JSON → `Text`（无类型保真）；`Bool` 写 TINYINT 0/1、读回 `I64`；`BIGINT UNSIGNED > i64::MAX` → `InvalidData`；Text/Blob 靠列元数据判定，不靠 UTF-8 试探 |
+| MYSQL2 | `NOrmQueryBuilder::offset()` 单独调用 | 会生成 `SELECT ... OFFSET n`，MySQL 报 1064（SQLite 允许）。必须搭配 `limit()`；`one()` 自带 `limit(1)`，`get` / `find_one` 不受影响 |
+| MYSQL3 | `NOrmMysqlDriver::query` 的列名/别名 | 必须原样保留 `COUNT(*) AS __count`，且 `COUNT(*)` 映射为 `NOrmValue::I64`；core 的 `count()` 精确匹配列名 `__count`，`to_i64()` 不接受其它变体 |
+| MYSQL4 | MySQL 类型降级 | `NOrmValue` 只有六种变体：DATETIME / DATE / TIME / DECIMAL / JSON → `Text`（无类型保真）；`Bool` 写 TINYINT 0/1、读回 `I64`；`BIGINT UNSIGNED > i64::MAX` → `InvalidData`；Text/Blob 靠列元数据判定，不靠 UTF-8 试探 |
 
 ## 3. C 类：安全边界（写代码前必须评估）
 
@@ -66,10 +66,10 @@ A6 的修复只需把 `src/singletons/app.rs:1` 的 `pub(crate)` 改成 `pub`，
 | C9 | **MD5 用于安全场景** | 存在碰撞攻击，只用于非安全的数据完整性校验 |
 | C10 | **bcrypt cost 热路径** | cost 每 +1 耗时翻倍；默认 12，高并发场景要限流 |
 | ORM6 | **SQL 注入** | 所有值必须走 `?` 参数化；列名/表名不可参数化，必须在 `E::COLUMNS` 白名单内。`execute_batch` / `execute_ddl` 绝不接用户输入 |
-| ORM7 | **SQLite 并发** | 一个 `SqliteDriver` 持一条连接，不是 `Sync`；并发场景每线程一个实例。连接池在 YAGNI 清单 |
-| MYSQL5 | **`MysqlDriver::execute_ddl` 原始 SQL** | 不参数化、不校验语句条数。实测 `mysql 28.0.4` 的 `query_drop` 允许分号拼接多语句，绝不接用户输入，只用于固定字面量 DDL；DDL 会隐式提交，事务内只做 DML |
-| MYSQL6 | **MySQL 连接与测试** | 一个 `MysqlDriver` 持一条连接，无连接池、非 `Sync`；`query` 全量物化，大结果集内存线性增长。集成测试强制 `NOTHINGS_MYSQL_DSN`，缺变量直接失败，账号需 `CREATE/DROP DATABASE` 权限 |
-| MYSQL7 | **时区自动转换的边界** | 自动转换只对 `Value::DateTime` 生效，`Value::Text` / `I64` 一律不转（避免误伤 DECIMAL/JSON/普通字符串）。`connect_with_tz` 用 `OptsBuilder::init` 下发 `SET time_zone`，但会话设置对 DATETIME 内部无效——由驱动层墙钟换算补偿，外部直写 DATETIME 的数据不保证正确。**所有 TIMESTAMP/DATETIME 列读回一律 `Value::DateTime`，`String` 字段会读到 `InvalidData`，须改用 `DateTime` 字段**。固定偏移无 DST，不支持命名时区自动夏令时；SQLite 驱动不支持自动转换（按墙钟原样写 TEXT） |
+| ORM7 | **SQLite 并发** | 一个 `NOrmSqliteDriver` 持一条连接，不是 `Sync`；并发场景每线程一个实例。连接池在 YAGNI 清单 |
+| MYSQL5 | **`NOrmMysqlDriver::execute_ddl` 原始 SQL** | 不参数化、不校验语句条数。实测 `mysql 28.0.4` 的 `query_drop` 允许分号拼接多语句，绝不接用户输入，只用于固定字面量 DDL；DDL 会隐式提交，事务内只做 DML |
+| MYSQL6 | **MySQL 连接与测试** | 一个 `NOrmMysqlDriver` 持一条连接，无连接池、非 `Sync`；`query` 全量物化，大结果集内存线性增长。集成测试强制 `NOTHINGS_MYSQL_DSN`，缺变量直接失败，账号需 `CREATE/DROP DATABASE` 权限 |
+| MYSQL7 | **时区自动转换的边界** | 自动转换只对 `NOrmValue::NOrmDateTime` 生效，`NOrmValue::Text` / `I64` 一律不转（避免误伤 DECIMAL/JSON/普通字符串）。`connect_with_tz` 用 `OptsBuilder::init` 下发 `SET time_zone`，但会话设置对 DATETIME 内部无效——由驱动层墙钟换算补偿，外部直写 DATETIME 的数据不保证正确。**所有 TIMESTAMP/DATETIME 列读回一律 `NOrmValue::NOrmDateTime`，`String` 字段会读到 `InvalidData`，须改用 `NOrmDateTime` 字段**。固定偏移无 DST，不支持命名时区自动夏令时；SQLite 驱动不支持自动转换（按墙钟原样写 TEXT） |
 
 ## 4. 使用规则
 

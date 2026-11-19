@@ -2,19 +2,19 @@
 
 use std::io::Error;
 
-use crate::row::Row;
-use crate::schema::Schema;
-use crate::value::Value;
+use crate::row::NOrmRow;
+use crate::schema::NOrmSchema;
+use crate::value::NOrmValue;
 
 /// 可映射到数据库表的实体。
 ///
-/// `Schema`、`from_row`、`pk_value`、`column_value` 全部由派生宏生成，
+/// `NOrmSchema`、`from_row`、`pk_value`、`column_value` 全部由派生宏生成，
 /// 调用方无需手写行映射代码。
-pub trait Entity: Schema + Sized {
-    fn from_row<R: Row>(row: &R) -> Result<Self, Error>;
+pub trait NOrmEntity: NOrmSchema + Sized {
+    fn from_row<R: NOrmRow>(row: &R) -> Result<Self, Error>;
 
-    fn pk_value(&self) -> Value;
+    fn pk_value(&self) -> NOrmValue;
 
     /// 按 schema 列名取出当前值；未知列名返回 InvalidInput。
-    fn column_value(&self, name: &str) -> Result<Value, Error>;
+    fn column_value(&self, name: &str) -> Result<NOrmValue, Error>;
 }

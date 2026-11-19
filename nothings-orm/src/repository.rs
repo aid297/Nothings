@@ -1,19 +1,19 @@
-//! Repository：CRUD 与事务。
+//! NOrmRepository：CRUD 与事务。
 
 use std::io::{Error, ErrorKind};
 
-use crate::driver::Driver;
-use crate::entity::Entity;
-use crate::query::QueryBuilder;
-use crate::value::Value;
+use crate::driver::NOrmDriver;
+use crate::entity::NOrmEntity;
+use crate::query::NOrmQueryBuilder;
+use crate::value::NOrmValue;
 
 /// 泛型仓储，持有驱动的可变借用。
-pub struct Repository<'a, D: Driver> {
+pub struct NOrmRepository<'a, D: NOrmDriver> {
     driver: &'a mut D,
     in_transaction: bool,
 }
 
-impl<'a, D: Driver> Repository<'a, D> {
+impl<'a, D: NOrmDriver> NOrmRepository<'a, D> {
     pub fn new(driver: &'a mut D) -> Self {
         Self {
             driver,
@@ -21,12 +21,12 @@ impl<'a, D: Driver> Repository<'a, D> {
         }
     }
 
-    fn pk_column<E: Entity>() -> &'static str {
+    fn pk_column<E: NOrmEntity>() -> &'static str {
         E::pk().name
     }
 
     /// 插入一行，返回主键。
-    pub fn insert<E: Entity>(&mut self, entity: &E) -> Result<i64, Error> {
+    pub fn insert<E: NOrmEntity>(&mut self, entity: &E) -> Result<i64, Error> {
         let columns = E::COLUMNS
             .iter()
             .filter(|c| !c.primary_key)
@@ -54,7 +54,7 @@ impl<'a, D: Driver> Repository<'a, D> {
     }
 
     /// 按主键查找，未找到返回 NotFound。
-    pub fn get<E: Entity>(&mut self, pk: Value) -> Result<E, Error> {
+    pub fn get<E: NOrmEntity>(&mut self, pk: NOrmValue) -> Result<E, Error> {
         match self.find_one::<E>(pk.clone())? {
             Some(entity) => Ok(entity),
             None => Err(Error::new(
@@ -65,18 +65,18 @@ impl<'a, D: Driver> Repository<'a, D> {
     }
 
     /// 按主键查找，未找到返回 Ok(None)。
-    pub fn find_one<E: Entity>(&mut self, pk: Value) -> Result<Option<E>, Error> {
+    pub fn find_one<E: NOrmEntity>(&mut self, pk: NOrmValue) -> Result<Option<E>, Error> {
         let mut query = self.query::<E>();
         query.r#where(Self::pk_column::<E>(), pk);
         query.one()
     }
 
-    pub fn find_all<E: Entity>(&mut self) -> Result<Vec<E>, Error> {
+    pub fn find_all<E: NOrmEntity>(&mut self) -> Result<Vec<E>, Error> {
         self.query::<E>().all()
     }
 
     /// 按主键更新，返回受影响行数。
-    pub fn update<E: Entity>(&mut self, entity: &E) -> Result<usize, Error> {
+    pub fn update<E: NOrmEntity>(&mut self, entity: &E) -> Result<usize, Error> {
         let pk_name = Self::pk_column::<E>();
         let columns = E::COLUMNS
             .iter()
@@ -108,7 +108,7 @@ impl<'a, D: Driver> Repository<'a, D> {
     }
 
     /// 按主键删除，返回受影响行数。
-    pub fn delete<E: Entity>(&mut self, pk: Value) -> Result<usize, Error> {
+    pub fn delete<E: NOrmEntity>(&mut self, pk: NOrmValue) -> Result<usize, Error> {
         let sql = format!(
             "DELETE FROM {} WHERE {} = ?",
             E::TABLE,
@@ -117,8 +117,8 @@ impl<'a, D: Driver> Repository<'a, D> {
         self.driver.execute(&sql, &[pk])
     }
 
-    pub fn query<E: Entity>(&mut self) -> QueryBuilder<'_, E, D> {
-        QueryBuilder::new(self.driver)
+    pub fn query<E: NOrmEntity>(&mut self) -> NOrmQueryBuilder<'_, E, D> {
+        NOrmQueryBuilder::new(self.driver)
     }
 
     /// 单层事务。嵌套调用返回 InvalidInput；Err 路径必 rollback。

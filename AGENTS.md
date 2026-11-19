@@ -12,7 +12,7 @@
 | MSRV | Rust 1.89+（`aes 0.9` 决定，高于 edition 2024 本身的 1.85） |
 | License | MIT |
 | 主 crate | 根目录 `Cargo.toml` |
-| 过程宏子 crate | `nothings-macros/`（`proc-macro = true`，提供 `#[derive(Nothings)]` 与 `#[derive(Entity)]`） |
+| 过程宏子 crate | `nothings-macros/`（`proc-macro = true`，提供 `#[derive(Nothings)]` 与 `#[derive(NOrmEntity)]`） |
 | ORM 核心 crate | `nothings-orm/`（零 DB 依赖，对标 gorm.io/gorm） |
 | SQLite 驱动 crate | `nothings-orm-sqlite/`（rusqlite bundled，对标 gorm.io/driver/*） |
 | MySQL 驱动 crate | `nothings-orm-mysql/`（同步 `mysql` crate，`minimal-rust` 纯 Rust；`connect_with_tz` 提供双时区自动转换） |
@@ -68,9 +68,9 @@ python3 docs/ai/tools/gen_api_index.py --check   # 漂移自检，返回 0 才�
 
 | crate | 入口 | 说明 | 文档 |
 | --- | --- | --- | --- |
-| nothings-orm | `nothings_orm::{Entity, Schema, Driver, Repository}` | ORM 核心，零 DB 依赖 | `nothings-orm/README.md` |
-| nothings-orm-sqlite | `nothings_orm_sqlite::SqliteDriver` | SQLite 驱动（rusqlite bundled） | `nothings-orm-sqlite/README.md` |
-| nothings-orm-mysql | `nothings_orm_mysql::MysqlDriver` | MySQL 驱动（同步 mysql crate；测试强制真库） | `nothings-orm-mysql/README.md` |
+| nothings-orm | `nothings_orm::{NOrmEntity, NOrmSchema, NOrmDriver, NOrmRepository}` | ORM 核心，零 DB 依赖 | `nothings-orm/README.md` |
+| nothings-orm-sqlite | `nothings_orm_sqlite::NOrmSqliteDriver` | SQLite 驱动（rusqlite bundled） | `nothings-orm-sqlite/README.md` |
+| nothings-orm-mysql | `nothings_orm_mysql::NOrmMysqlDriver` | MySQL 驱动（同步 mysql crate；测试强制真库） | `nothings-orm-mysql/README.md` |
 
 ORM 设计：`docs/ai/spec/50-orm-design.md`；MySQL 驱动设计：`docs/ai/spec/51-mysql-driver-design.md`。派生宏生成的 API 不进 JSON 契约（生成器不展开过程宏），查签名看 crate README。
 
@@ -80,7 +80,7 @@ ORM 设计：`docs/ai/spec/50-orm-design.md`；MySQL 驱动设计：`docs/ai/spe
 - **链式 setter 返回 `&mut Self`**（`Aes::set_key` / `set_iv` 是正例）。既有 `Bcrypt::set_origin` / `Sha256Hash::set_origin` 返回 `&Self`，导致无法连续链式调用，不要复制这个缺陷。
 - **构造函数不落错**：参数校验推迟到实际调用（如 `Aes::gcm` 接受任意长度 key，长度错在 `encrypt` 时返回 `ErrorKind::InvalidInput`）。
 - **错误类型沿用 `std::io::Error`**，不新增公开错误类型；`InvalidInput` = 输入参数非法，`InvalidData` = 解密/解压失败。
-- **过程宏改动在 `nothings-macros/`**，主 crate 通过 `pub use nothings_macros::Nothings;` 重新导出；改宏必须同时验 `validations` 的测试。`#[derive(Entity)]` 同理，验 `nothings-orm` 的测试。
+- **过程宏改动在 `nothings-macros/`**，主 crate 通过 `pub use nothings_macros::Nothings;` 重新导出；改宏必须同时验 `validations` 的测试。`#[derive(NOrmEntity)]` 同理，验 `nothings-orm` 的测试。
 - **ORM 的 SQL 注入防线**：值走 `?` 参数化；列名/表名必须在 `E::COLUMNS` 白名单内。不要在 ORM 代码里拼接用户输入到 SQL。
 - **新模块必须配 `README.md`**，并在根 `README.md` 的模块目录表登记。
 

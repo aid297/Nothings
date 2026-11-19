@@ -1,8 +1,8 @@
-//! `#[derive(Entity)]` 的展开逻辑。
+//! `#[derive(NOrmEntity)]` 的展开逻辑。
 //!
 //! 属性语法：
 //! ```text
-//! #[derive(Entity)]
+//! #[derive(NOrmEntity)]
 //! #[entity(table = "users")]
 //! struct User {
 //!     #[entity(primary_key, column = "id")]
@@ -65,14 +65,14 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                 } else {
                     return Err(syn::Error::new_spanned(
                         nv.value,
-                        "Entity: table 必须是字符串字面量",
+                        "NOrmEntity: table 必须是字符串字面量",
                     ));
                 }
             }
         }
     }
     let table = table.ok_or_else(|| {
-        syn::Error::new_spanned(name, "Entity: 缺少 #[entity(table = \"...\")] 属性")
+        syn::Error::new_spanned(name, "NOrmEntity: 缺少 #[entity(table = \"...\")] 属性")
     })?;
 
     // 字段级属性
@@ -85,7 +85,7 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                     let ident = field
                         .ident
                         .clone()
-                        .ok_or_else(|| syn::Error::new_spanned(field, "Entity: 字段必须有名字"))?;
+                        .ok_or_else(|| syn::Error::new_spanned(field, "NOrmEntity: 字段必须有名字"))?;
                     let field_name = ident.to_string();
                     let mut column = field_name.clone();
                     let mut primary_key = false;
@@ -114,14 +114,14 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                                     } else {
                                         return Err(syn::Error::new_spanned(
                                             nv.value,
-                                            "Entity: column 必须是字符串字面量",
+                                            "NOrmEntity: column 必须是字符串字面量",
                                         ));
                                     }
                                 }
                                 other => {
                                     return Err(syn::Error::new_spanned(
                                         other,
-                                        "Entity: 不支持的字段属性",
+                                        "NOrmEntity: 不支持的字段属性",
                                     ));
                                 }
                             }
@@ -145,14 +145,14 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
             _ => {
                 return Err(syn::Error::new_spanned(
                     &input,
-                    "Entity 只支持命名字段的结构体",
+                    "NOrmEntity 只支持命名字段的结构体",
                 ));
             }
         },
         _ => {
             return Err(syn::Error::new_spanned(
                 &input,
-                "Entity 只能用于结构体",
+                "NOrmEntity 只能用于结构体",
             ));
         }
     };
@@ -160,7 +160,7 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
     if fields.is_empty() {
         return Err(syn::Error::new_spanned(
             &input,
-            "Entity: 结构体至少需要一个字段",
+            "NOrmEntity: 结构体至少需要一个字段",
         ));
     }
     let pk_indexes: Vec<usize> = fields
@@ -171,7 +171,7 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
     if pk_indexes.len() != 1 {
         return Err(syn::Error::new_spanned(
             &input,
-            "Entity: 必须且只能有一个字段标记 primary_key",
+            "NOrmEntity: 必须且只能有一个字段标记 primary_key",
         ));
     }
     let pk_index = pk_indexes[0];
@@ -181,14 +181,14 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
     for field in &fields {
         let ty = &field.ty;
         generics.make_where_clause().predicates.push(parse_quote!(
-            #ty: ::nothings_orm::value::HasSqlType
-                + ::nothings_orm::value::FromValue
-                + ::nothings_orm::value::ToValue
+            #ty: ::nothings_orm::value::NOrmHasSqlType
+                + ::nothings_orm::value::NOrmFromValue
+                + ::nothings_orm::value::NOrmToValue
         ));
     }
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    // Schema::COLUMNS
+    // NOrmSchema::COLUMNS
     let column_literals = fields.iter().map(|f| {
         let field_name = f.ident.to_string();
         let column = &f.column;
@@ -196,26 +196,26 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
         let nullable = f.nullable;
         let primary_key = f.primary_key;
         quote! {
-            ::nothings_orm::schema::Column {
+            ::nothings_orm::schema::NOrmColumn {
                 field: #field_name,
                 name: #column,
-                sql_type: <#ty as ::nothings_orm::value::HasSqlType>::SQL_TYPE,
+                sql_type: <#ty as ::nothings_orm::value::NOrmHasSqlType>::SQL_TYPE,
                 nullable: #nullable,
                 primary_key: #primary_key,
             }
         }
     });
 
-    // from_row：按列名在 Row 中查找索引，再走 FromValue 解码。
+    // from_row：按列名在 NOrmRow 中查找索引，再走 NOrmFromValue 解码。
     let lookups = fields.iter().enumerate().map(|(i, f)| {
         let idx_var = syn::Ident::new(&format!("__orm_idx_{}", i), f.ident.span());
         let val_var = syn::Ident::new(&format!("__orm_val_{}", i), f.ident.span());
         let column = &f.column;
-        let _ = f.is_option; // Option<T> 的 Null 处理交给 FromValue 的 blanket impl
+        let _ = f.is_option; // Option<T> 的 Null 处理交给 NOrmFromValue 的 blanket impl
         quote! {
             let mut #idx_var: ::std::option::Option<::std::primitive::usize> = ::std::option::Option::None;
-            for __orm_i in 0..::nothings_orm::row::Row::column_count(row) {
-                if ::nothings_orm::row::Row::column_name(row, __orm_i) == #column {
+            for __orm_i in 0..::nothings_orm::row::NOrmRow::column_count(row) {
+                if ::nothings_orm::row::NOrmRow::column_name(row, __orm_i) == #column {
                     #idx_var = ::std::option::Option::Some(__orm_i);
                     break;
                 }
@@ -223,10 +223,10 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
             let #idx_var = #idx_var.ok_or_else(|| {
                 ::std::io::Error::new(
                     ::std::io::ErrorKind::InvalidData,
-                    ::std::format!("Entity {}: 结果集缺少列 {}", #table, #column),
+                    ::std::format!("NOrmEntity {}: 结果集缺少列 {}", #table, #column),
                 )
             })?;
-            let #val_var = ::nothings_orm::row::Row::value(row, #idx_var)?;
+            let #val_var = ::nothings_orm::row::NOrmRow::value(row, #idx_var)?;
         }
     });
 
@@ -235,7 +235,7 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
         let val_var = syn::Ident::new(&format!("__orm_val_{}", i), f.ident.span());
         let ty = &f.ty;
         quote! {
-            #ident: <#ty as ::nothings_orm::value::FromValue>::from_value(&#val_var)?
+            #ident: <#ty as ::nothings_orm::value::NOrmFromValue>::from_value(&#val_var)?
         }
     });
 
@@ -245,44 +245,44 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
         let ident = &f.ident;
         quote! {
             #column => ::std::result::Result::Ok(
-                ::nothings_orm::value::ToValue::to_value(&self.#ident)
+                ::nothings_orm::value::NOrmToValue::to_value(&self.#ident)
             ),
         }
     });
     let table_for_error = &table;
 
     Ok(quote! {
-        impl #impl_generics ::nothings_orm::schema::Schema for #name #ty_generics #where_clause {
+        impl #impl_generics ::nothings_orm::schema::NOrmSchema for #name #ty_generics #where_clause {
             const TABLE: &'static str = #table;
-            const COLUMNS: &'static [::nothings_orm::schema::Column] = &[
+            const COLUMNS: &'static [::nothings_orm::schema::NOrmColumn] = &[
                 #(#column_literals),*
             ];
-            fn pk() -> &'static ::nothings_orm::schema::Column {
+            fn pk() -> &'static ::nothings_orm::schema::NOrmColumn {
                 &Self::COLUMNS[#pk_index]
             }
         }
 
-        impl #impl_generics ::nothings_orm::entity::Entity for #name #ty_generics #where_clause {
-            fn from_row<R: ::nothings_orm::row::Row>(
+        impl #impl_generics ::nothings_orm::entity::NOrmEntity for #name #ty_generics #where_clause {
+            fn from_row<R: ::nothings_orm::row::NOrmRow>(
                 row: &R,
             ) -> ::std::result::Result<Self, ::std::io::Error> {
                 #(#lookups)*
                 ::std::result::Result::Ok(Self { #(#field_inits),* })
             }
 
-            fn pk_value(&self) -> ::nothings_orm::value::Value {
-                ::nothings_orm::value::ToValue::to_value(&self.#pk_ident)
+            fn pk_value(&self) -> ::nothings_orm::value::NOrmValue {
+                ::nothings_orm::value::NOrmToValue::to_value(&self.#pk_ident)
             }
 
             fn column_value(
                 &self,
                 __orm_name: &str,
-            ) -> ::std::result::Result<::nothings_orm::value::Value, ::std::io::Error> {
+            ) -> ::std::result::Result<::nothings_orm::value::NOrmValue, ::std::io::Error> {
                 match __orm_name {
                     #(#column_value_arms)*
                     _ => ::std::result::Result::Err(::std::io::Error::new(
                         ::std::io::ErrorKind::InvalidInput,
-                        ::std::format!("Entity {}: 未知列 {}", #table_for_error, __orm_name),
+                        ::std::format!("NOrmEntity {}: 未知列 {}", #table_for_error, __orm_name),
                     )),
                 }
             }

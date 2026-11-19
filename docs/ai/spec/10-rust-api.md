@@ -132,19 +132,20 @@ pub struct HttpResponse<T> {
 
 | 类型 | 关键签名 | 契约 |
 | --- | --- | --- |
-| `Value` | `Null / Bool / I64 / F64 / Text / Blob` | 运行时列值；`ToValue` / `FromValue` 双向转换；`Option<T>` 的 Null → None |
-| `SqlType` | `Integer / Real / Text / Blob` | `HasSqlType::SQL_TYPE` 静态标签 |
-| `Row` / `OwnedRow` | `column_count` / `column_name` / `value` | `Driver::query` 必须即时物化为 owned 行 |
-| `Schema` | `const TABLE` / `const COLUMNS` / `fn pk()` | 由 `#[derive(Entity)]` 生成 |
-| `Entity` | `from_row<R: Row>` / `pk_value` / `column_value` | 全部由宏生成，调用方需 `use nothings_orm::entity::Entity as EntityTrait` 才能调 trait 方法 |
-| `Driver` | `execute` / `query` / `last_insert_id` / `begin` / `commit` / `rollback` | 后端抽象；所有 SQL 必须参数化；驱动 crate 需显式 `use nothings_orm::driver::Driver` 才能 impl |
-| `Repository` | `insert` / `get` / `find_one` / `find_all` / `update` / `delete` / `query` / `transaction` | 泛型 `D: Driver`；`get` 未找到返 `NotFound`，`find_one` 返 `Ok(None)` |
-| `QueryBuilder` | `r#where` / `order_by` / `limit` / `offset` / `all` / `one` / `count` | 链式 `&mut Self`；列名必须在 schema 白名单内；MySQL 下 `offset()` 必须搭配 `limit()` |
-| `SqliteDriver` | `open(&str)` / `in_memory()` / `execute_batch(&str)` | rusqlite bundled；`execute_batch` 仅供 DDL/测试 |
-| `MysqlDriver` | `connect(&str)` / `connect_with_tz(&str, UtcOffset, UtcOffset)` / `execute_ddl(&str)` | 同步 `mysql` crate（minimal-rust）；`execute_ddl` 单条原始 DDL，不参数化；`impl Driver` 的 6 个方法在 JSON 中记为 `inherited (trait method)` |
-| `UtcOffset` / `DateTime` | `UtcOffset::parse` / `DateTime::new` / `parse` / `from_unix_secs` | `nothings-orm::value` 的零依赖时间类型；`Value::DateTime` 是时区转换的类型标记，`Text`/`I64` 不转 |
+| `NOrmValue` | `Null / Bool / I64 / F64 / Text / Blob` | 运行时列值；`NOrmToValue` / `NOrmFromValue` 双向转换；`Option<T>` 的 Null → None |
+| `NOrmSqlType` | `Integer / Real / Text / Blob` | `NOrmHasSqlType::SQL_TYPE` 静态标签 |
+| `NOrmRow` / `NOrmOwnedRow` | `column_count` / `column_name` / `value` | `NOrmDriver::query` 必须即时物化为 owned 行 |
+| `NOrmSchema` | `const TABLE` / `const COLUMNS` / `fn pk()` | 由 `#[derive(NOrmEntity)]` 生成 |
+| `NOrmEntity` | `from_row<R: NOrmRow>` / `pk_value` / `column_value` | 全部由宏生成，调用方需 `use nothings_orm::entity::NOrmEntity as EntityTrait` 才能调 trait 方法 |
+| `NOrmDriver` | `execute` / `query` / `last_insert_id` / `begin` / `commit` / `rollback` | 后端抽象；所有 SQL 必须参数化；驱动 crate 需显式 `use nothings_orm::driver::NOrmDriver` 才能 impl |
+| `NOrmRepository` | `insert` / `get` / `find_one` / `find_all` / `update` / `delete` / `query` / `transaction` | 泛型 `D: NOrmDriver`；`get` 未找到返 `NotFound`，`find_one` 返 `Ok(None)` |
+| `NOrmQueryBuilder` | `r#where` / `and_where` / `or_where` / `not_where` / `where_op` / `or_where_op` / `where_condition` / `or_where_condition` / `not_where_condition` / `order_by` / `limit` / `offset` / `all` / `one` / `count` | 链式 `&mut Self`，条件左折叠、渲染期最小括号；列名必须在 schema 白名单内；MySQL 下 `offset()` 必须搭配 `limit()` |
+| `NOrmCondition<E>` / `NOrmOperator` | `eq/ne/gt/ge/lt/le/like/not_like/cmp` / `in_list/not_in_list` / `is_null/is_not_null` / `and/or/group` + `!`（`std::ops::Not`） | `nothings_orm::condition`；条件树可独立构造后注入 `where_condition`；独立构造需显式 `NOrmCondition::<E>` 类型参数 |
+| `NOrmSqliteDriver` | `open(&str)` / `in_memory()` / `execute_batch(&str)` | rusqlite bundled；`execute_batch` 仅供 DDL/测试 |
+| `NOrmMysqlDriver` | `connect(&str)` / `connect_with_tz(&str, NOrmUtcOffset, NOrmUtcOffset)` / `execute_ddl(&str)` | 同步 `mysql` crate（minimal-rust）；`execute_ddl` 单条原始 DDL，不参数化；`impl NOrmDriver` 的 6 个方法在 JSON 中记为 `inherited (trait method)` |
+| `NOrmUtcOffset` / `NOrmDateTime` | `NOrmUtcOffset::parse` / `NOrmDateTime::new` / `parse` / `from_unix_secs` | `nothings-orm::value` 的零依赖时间类型；`NOrmValue::NOrmDateTime` 是时区转换的类型标记，`Text`/`I64` 不转 |
 
-派生宏生成的方法（`Schema` / `Entity` 的 impl）**不进 `public-api.json`**——生成器只扫源码文本，不展开过程宏。查这些 API 看 `nothings-orm/README.md`。
+派生宏生成的方法（`NOrmSchema` / `NOrmEntity` 的 impl）**不进 `public-api.json`**——生成器只扫源码文本，不展开过程宏。查这些 API 看 `nothings-orm/README.md`。
 
 ## 3. 易错签名速查
 
@@ -159,9 +160,11 @@ pub struct HttpResponse<T> {
 | `File::zip` / `Dir::zip` | 都返回 `Result<File, String>`（新 `File` 对象），不是 `()` |
 | 压缩 `compress_file*` | 返回 `Result<(), Error>`，不是压缩后的字节 |
 | `AnyMap::every` | `-> &Self`，不是 `bool` |
-| `Entity::from_row` | trait 方法，需导入 `nothings_orm::entity::Entity as EntityTrait`；crate 根的同名 `Entity` 是派生宏 |
-| `QueryBuilder::r#where` | raw identifier，列名必须在 `E::COLUMNS` 白名单内 |
-| `SqliteDriver::execute_batch` | 原始 SQL，不参数化，禁止传用户输入 |
-| `MysqlDriver::execute_ddl` | 单条原始 DDL，不参数化；实测客户端允许多语句，禁止传用户输入 |
-| `MysqlDriver` 的 `Driver` 方法 | trait 方法在 `public-api.json` 中记为 `inherited (trait method)`；驱动 crate 需显式 `use nothings_orm::driver::Driver` |
-| `nothings-orm-mysql` 的 `query` | 原样保留 `AS __count` 别名与列名大小写；`QueryBuilder::offset()` 必须搭配 `limit()` |
+| `NOrmEntity::from_row` | trait 方法，需导入 `nothings_orm::entity::NOrmEntity as EntityTrait`；crate 根的同名 `NOrmEntity` 是派生宏 |
+| `NOrmQueryBuilder::r#where` | raw identifier，列名必须在 `E::COLUMNS` 白名单内 |
+| 条件链的连接顺序 | 左折叠：`a AND b OR c` 解析为 `(a AND b) OR c`，不按 SQL 优先级重排；首项 `or_where` 退化为裸首项 |
+| `NOrmCondition::<E>::in_list` / `is_null` | 参数里不含实体类型，独立构造需写 `NOrmCondition::<User>::...`；空 IN 折叠为 `0 = 1` |
+| `NOrmSqliteDriver::execute_batch` | 原始 SQL，不参数化，禁止传用户输入 |
+| `NOrmMysqlDriver::execute_ddl` | 单条原始 DDL，不参数化；实测客户端允许多语句，禁止传用户输入 |
+| `NOrmMysqlDriver` 的 `NOrmDriver` 方法 | trait 方法在 `public-api.json` 中记为 `inherited (trait method)`；驱动 crate 需显式 `use nothings_orm::driver::NOrmDriver` |
+| `nothings-orm-mysql` 的 `query` | 原样保留 `AS __count` 别名与列名大小写；`NOrmQueryBuilder::offset()` 必须搭配 `limit()` |

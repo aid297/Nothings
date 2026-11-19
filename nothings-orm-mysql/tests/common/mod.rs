@@ -3,8 +3,8 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use nothings_orm::Entity;
-use nothings_orm_mysql::MysqlDriver;
+use nothings_orm::NOrmEntity;
+use nothings_orm_mysql::NOrmMysqlDriver;
 
 static SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -18,7 +18,7 @@ pub fn base_dsn() -> String {
         .to_string()
 }
 
-#[derive(Debug, Entity)]
+#[derive(Debug, NOrmEntity)]
 #[entity(table = "users")]
 pub struct User {
     #[entity(primary_key, column = "id")]
@@ -43,9 +43,9 @@ pub fn user(name: &str) -> User {
     }
 }
 
-/// 每个测试一个独立 database：`Schema::TABLE` 是编译期常量，无法动态改表名。
+/// 每个测试一个独立 database：`NOrmSchema::TABLE` 是编译期常量，无法动态改表名。
 pub struct TestDb {
-    pub driver: MysqlDriver,
+    pub driver: NOrmMysqlDriver,
     base: String,
     db: String,
 }
@@ -58,14 +58,14 @@ impl TestDb {
             std::process::id(),
             SEQ.fetch_add(1, Ordering::SeqCst)
         );
-        let mut admin = MysqlDriver::connect(&base).unwrap();
+        let mut admin = NOrmMysqlDriver::connect(&base).unwrap();
         admin
             .execute_ddl(&format!("DROP DATABASE IF EXISTS `{db}`"))
             .unwrap();
         admin
             .execute_ddl(&format!("CREATE DATABASE `{db}`"))
             .unwrap();
-        let driver = MysqlDriver::connect(&format!("{base}/{db}")).unwrap();
+        let driver = NOrmMysqlDriver::connect(&format!("{base}/{db}")).unwrap();
         Self { driver, base, db }
     }
 
@@ -92,7 +92,7 @@ impl TestDb {
 
 impl Drop for TestDb {
     fn drop(&mut self) {
-        if let Ok(mut admin) = MysqlDriver::connect(&self.base) {
+        if let Ok(mut admin) = NOrmMysqlDriver::connect(&self.base) {
             let _ = admin.execute_ddl(&format!("DROP DATABASE IF EXISTS `{}`", self.db));
         }
     }

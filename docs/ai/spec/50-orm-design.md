@@ -2,7 +2,7 @@
 
 - 日期：2026-11-18
 - 状态：已批准，实现中
-- 范围：新增 3 个 crate 的 Phase 1 ORM 能力（Entity 派生宏、静态 schema、行映射、CRUD、QueryBuilder、事务）
+- 范围：新增 3 个 crate 的 Phase 1 ORM 能力（NOrmEntity 派生宏、静态 schema、行映射、CRUD、NOrmQueryBuilder、事务）
 - 批准计划：`/Users/yujizhou/.workbuddy/plans/swift-beacon-curie-hcGyIdO2.md`
 
 ## 背景与目标
@@ -21,7 +21,7 @@ nothings/                       # 根 crate：只改 Cargo.toml:22 的宏版本�
 ├── nothings-orm/               # 核心 crate，零 DB 依赖，全平台可编译
 │   └── src/{lib,value,row,schema,entity,driver,repository,query}.rs
 └── nothings-orm-sqlite/        # 驱动 crate，仅 native
-    └── src/lib.rs              # SqliteDriver + rusqlite(bundled)
+    └── src/lib.rs              # NOrmSqliteDriver + rusqlite(bundled)
 ```
 
 - 所有 crate 都是 `crate-type = ["lib"]`。根 crate 在 2026-11-18 的外部改动中已移除 `cdylib` 与 wasm 支持，成为纯 native 库；SQLite 驱动仍放独立 crate，保持根 crate 零 DB 依赖。
@@ -34,7 +34,7 @@ nothings/                       # 根 crate：只改 Cargo.toml:22 的宏版本�
 ### 宏属性
 
 ```rust
-#[derive(Entity)]
+#[derive(NOrmEntity)]
 #[entity(table = "users")]
 struct User {
     #[entity(primary_key, column = "id")]
@@ -48,27 +48,32 @@ struct User {
 
 解析用 `attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)`，匹配 `Meta::NameValue`（`Lit::Str`）与 `Meta::Path` 标志。不复用 `parse_validator_attrs`（validator 专用手写字符扫描）。
 
-生成 `impl ::nothings_orm::schema::Schema`（`TABLE` / `COLUMNS`）与 `impl ::nothings_orm::entity::Entity`（`from_row` / `pk_value`），SQL 类型发射为 `<FieldType as HasSqlType>::SQL_TYPE`，宏侧不维护映射表。
+生成 `impl ::nothings_orm::schema::NOrmSchema`（`TABLE` / `COLUMNS`）与 `impl ::nothings_orm::entity::NOrmEntity`（`from_row` / `pk_value`），SQL 类型发射为 `<FieldType as NOrmHasSqlType>::SQL_TYPE`，宏侧不维护映射表。
 
 ### 核心 trait（签名级）
 
 ```
-Value { Null, Bool, I64, F64, Text, Blob }
-ToValue::to_value() -> Value
-FromValue::from_value(&Value) -> Result<Self, io::Error>
-SqlType { Integer, Real, Text, Blob }
-HasSqlType::SQL_TYPE: SqlType
+NOrmValue { Null, Bool, I64, F64, Text, Blob }
+NOrmToValue::to_value() -> NOrmValue
+NOrmFromValue::from_value(&NOrmValue) -> Result<Self, io::Error>
+NOrmSqlType { Integer, Real, Text, Blob }
+NOrmHasSqlType::SQL_TYPE: NOrmSqlType
 
-Row { column_count, column_name, value }
-OwnedRow { Vec<String> + Vec<Value> }        // 即时物化，规避 stmt 借用
+NOrmRow { column_count, column_name, value }
+NOrmOwnedRow { Vec<String> + Vec<NOrmValue> }        // 即时物化，规避 stmt 借用
 
-Column { field, name, sql_type, nullable, primary_key }
-Schema { const TABLE, const COLUMNS, fn pk() }
-Entity: Schema { fn from_row<R: Row>(&R) -> Result<Self, io::Error>; fn pk_value() -> Value }
+NOrmColumn { field, name, sql_type, nullable, primary_key }
+NOrmSchema { const TABLE, const COLUMNS, fn pk() }
+NOrmEntity: NOrmSchema { fn from_row<R: NOrmRow>(&R) -> Result<Self, io::Error>; fn pk_value() -> NOrmValue }
 
-Driver { execute, query, last_insert_id, begin, commit, rollback }
-Repository<'a, D: Driver> { new, insert, get, find_one, find_all, update, delete, query, transaction }
-QueryBuilder<'a, E, D> { r#where, order_by, limit, offset, all, one, count }  // 链式 &mut Self
+NOrmDriver { execute, query, last_insert_id, begin, commit, rollback }
+NOrmRepository<'a, D: NOrmDriver> { new, insert, get, find_one, find_all, update, delete, query, transaction }
+NOrmQueryBuilder<'a, E, D> { r#where, and_where, or_where, not_where, where_op, or_where_op,
+                         where_condition, or_where_condition, not_where_condition,
+                         order_by, limit, offset, all, one, count }          // 链式 &mut Self
+NOrmCondition<E: NOrmSchema> { eq/ne/gt/ge/lt/le/like/not_like/cmp, in_list/not_in_list,
+                       is_null/is_not_null, and/or/group, ! (Not trait) }    // 独立条件树
+NOrmOperator { Eq, Ne, Gt, Ge, Lt, Le, Like, NotLike, In, NotIn, IsNull, IsNotNull }
 ```
 
 ### 错误处理
@@ -87,7 +92,8 @@ orphan rule：不能 `impl From<rusqlite::Error> for io::Error`，驱动 crate �
 
 ### 安全边界
 
-- 值一律 `?` + `params: &[Value]` 参数化；列名/表名不可参数化，必须在 `E::COLUMNS` 白名单内，否则 `InvalidInput`。
+- 值一律 `?` + `params: &[NOrmValue]` 参数化；列名/表名不可参数化，必须在 `E::COLUMNS` 白名单内，否则 `InvalidInput`。
+- 比较运算符来自 `NOrmOperator` 枚举白名单，SQL 关键字不来自用户输入；`IS NULL` 不接参数；`IN` 空列表折叠为 `0 = 1` / `1 = 1`；递归渲染保证 `?` 数量与参数顺序严格一致。
 - 事务单层，嵌套 `InvalidInput`；`Err` 必 rollback；无 savepoint。
 
 ## 明确不做（YAGNI）
@@ -100,9 +106,9 @@ MySQL 驱动已于 2026-11-18 作为独立 crate `nothings-orm-mysql` 落地，�
 
 | 层次 | 位置 | 做法 |
 | --- | --- | --- |
-| 核心纯逻辑 | `nothings-orm/src/*` 内 `#[cfg(test)]` | 假 Driver 记录 SQL / 返回 canned `OwnedRow`，零 DB |
-| 宏展开成功 | `nothings-orm/tests/entity.rs` | 断言 `Schema::TABLE/COLUMNS`、`from_row`、`pk_value` |
-| SQLite 内存 | `nothings-orm-sqlite/tests/crud.rs` | CRUD / QueryBuilder / 事务 / 约束冲突 / 类型不匹配 / 0 行更新 |
+| 核心纯逻辑 | `nothings-orm/src/*` 内 `#[cfg(test)]` | 假 NOrmDriver 记录 SQL / 返回 canned `NOrmOwnedRow`，零 DB |
+| 宏展开成功 | `nothings-orm/tests/entity.rs` | 断言 `NOrmSchema::TABLE/COLUMNS`、`from_row`、`pk_value` |
+| SQLite 内存 | `nothings-orm-sqlite/tests/crud.rs` | CRUD / NOrmQueryBuilder / 事务 / 约束冲突 / 类型不匹配 / 0 行更新 |
 | 真实文件 | `nothings-orm-sqlite/tests/file_db.rs` | `tempfile` 临时库，关闭重开验证持久性 |
 | 宏展开失败 | 不引入 trybuild | 固定 `compile_error!` 文案 + README 反例 |
 
@@ -121,11 +127,19 @@ python3 docs/ai/tools/gen_api_index.py && python3 docs/ai/tools/gen_api_index.py
 
 ## 实现记录
 
-- **Entity trait 增加了 `column_value(&self, name)`**：设计阶段只列了 `from_row` / `pk_value`。落地时 Repository 的 `insert` / `update` 需要按列名取实体值，若做成旁支 `ColumnValues` trait 会多一层间接且要宏生成两个 impl，直接扩展 `Entity` 更干净。这是设计外新增的公开方法。
-- **`ToValue` 也实现给了 `Value` 与 `&str`**：`Repository::get/find_one` 直接接收 `Value` 主键，需 `Value: ToValue`；`r#where` 传字符串字面量是高频用法，需 `&str: ToValue`。两者都是落地时暴露的需求。
+- **NOrmEntity trait 增加了 `column_value(&self, name)`**：设计阶段只列了 `from_row` / `pk_value`。落地时 NOrmRepository 的 `insert` / `update` 需要按列名取实体值，若做成旁支 `ColumnValues` trait 会多一层间接且要宏生成两个 impl，直接扩展 `NOrmEntity` 更干净。这是设计外新增的公开方法。
+- **`NOrmToValue` 也实现给了 `NOrmValue` 与 `&str`**：`NOrmRepository::get/find_one` 直接接收 `NOrmValue` 主键，需 `NOrmValue: NOrmToValue`；`r#where` 传字符串字面量是高频用法，需 `&str: NOrmToValue`。两者都是落地时暴露的需求。
 - **列名校验的错误延后**：`r#where` / `order_by` 返回 `&mut Self`（链式风格），无法即时返回 `Result`。实现把非法列名记为哨兵字符串，`all()` / `one()` / `count()` 时统一转 `InvalidInput`。调用方要注意错误不在构造点抛出（已登记为 `spec/30` 的 ORM1）。
 - **rusqlite 错误码变体与预期不同**：`ErrorCode` 没有 `CantOpen` / `InvalidColumnName` 等变体，实际是 `CannotOpen` / `ApiMisuse` 等；按源码定义的枚举重写了映射表。
-- **orphan rule 避开方式**：不能给外部类型 `Value` 实现外部 trait `rusqlite::ToSql`。驱动 crate 改为把 `Value` 映射成本地函数 `to_sql` 返回的 `rusqlite::types::Value`，再交给 `params_from_iter`。
+- **orphan rule 避开方式**：不能给外部类型 `NOrmValue` 实现外部 trait `rusqlite::ToSql`。驱动 crate 改为把 `NOrmValue` 映射成本地函数 `to_sql` 返回的 `rusqlite::types::NOrmValue`，再交给 `params_from_iter`。
 - **raw identifier 解析**：`gen_api_index.py` 初版把 `r#where` 解析成 `r`，已修 fn 正则支持 `r#` 前缀；这是生成器第一次遇到 raw identifier。
 - **基线变化**：实现期间工作区的 wasm 支持被外部改动移除（删 `wasm_exports`、`cdylib`、wasm 依赖），根基线 304 → 299 单测、契约 389 → 376 items。本 spec 与计划文件已按新基线改写，wasm 双目标验收项作废。
 - **验证结果**：根 299 单测 + 21 doctest（1 ignored）通过；nothings-orm 8 测、nothings-orm-sqlite 10 测通过；契约 456 items，生成器 `--check` 返回 0；根 `cargo tree` 无 sqlite/orm 依赖。
+
+### 2026-11-18 WHERE 条件增强（AST 化）
+
+- `conditions: Vec<String> + params: Vec<NOrmValue>` 替换为 `where_: Option<NOrmCondition<E>>`；参数由渲染期按 `?` 遍历顺序收集，从结构上保证占位符与参数一一对应。
+- 新增 `condition` 模块：`NOrmOperator` 枚举（12 个运算符）、`NOrmCondition<E>` 条件树（比较叶子 + AND/OR/NOT/Group），构造期校验列名并把结果内嵌到节点。旧的哨兵字符串被节点内 `Result` 取代，延后报错语义（ORM1）不变，但错误文本不再带 `__invalid_column__:` 内部前缀。
+- 链式入口追加 `and_where` / `or_where` / `not_where` / `where_op` / `or_where_op` / `where_condition` / `or_where_condition` / `not_where_condition`。连接语义为**左折叠**：调用顺序决定结合顺序，渲染期用最小括号（`OR=1 < AND=2`）忠实还原；`where_condition` 不强制包 Group，避免多余括号。
+- `build_select` 与 `count` 两处重复的 `join(" AND ")` 合并为单一 `render_where()`，保证 `all()` 与 `count()` 的条件完全一致。
+- 驱动 crate 零改动——`NOrmDriver::query(&str, &[NOrmValue])` 只绑定参数；新增核心单测用假 NOrmDriver 精确断言 SQL，SQLite/MySQL 各加条件集成测试。

@@ -76,6 +76,6 @@ cargo test --manifest-path nothings-orm-mysql/Cargo.toml   # 需 NOTHINGS_MYSQL_
 
 生成器只依赖 Python 标准库，不写时间戳，因此重复生成结果稳定，`--check` 可直接放进提交前检查。
 
-**已知盲区**：生成器只扫源码文本，不展开过程宏。`#[derive(Entity)]` 生成的 `Schema` / `Entity` impl 不会进 JSON；`#[derive(Nothings)]` 同理。跨 crate 的 `pub use` 只记一条 `use` item，不展开目标类型。这些 API 要在 crate README 里显式列出。
+**已知盲区**：生成器只扫源码文本，不展开过程宏。`#[derive(NOrmEntity)]` 生成的 `NOrmSchema` / `NOrmEntity` impl 不会进 JSON；`#[derive(Nothings)]` 同理。跨 crate 的 `pub use` 只记一条 `use` item，不展开目标类型。这些 API 要在 crate README 里显式列出。
 
 新增独立 crate 时必须先把源根加进生成器的 `SOURCE_ROOTS` 与 `MANIFESTS`，否则 JSON 静默漏收且 `--check` 仍返回 0。改公开 API 后的同步流程见 `../spec/40-development-workflow.md`。

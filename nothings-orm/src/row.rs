@@ -1,32 +1,32 @@
 //! 结果集行的抽象与 owned 实现。
 //!
-//! `Driver::query` 必须即时把数据库的 borrowed 行物化为 `OwnedRow`，
-//! 这样行数据才不会受语句生命周期约束，可以安全地交给 `Entity::from_row`。
+//! `NOrmDriver::query` 必须即时把数据库的 borrowed 行物化为 `NOrmOwnedRow`，
+//! 这样行数据才不会受语句生命周期约束，可以安全地交给 `NOrmEntity::from_row`。
 
 use std::io::{Error, ErrorKind};
 
-use crate::value::Value;
+use crate::value::NOrmValue;
 
 /// 结果集行的只读视图。
-pub trait Row {
+pub trait NOrmRow {
     fn column_count(&self) -> usize;
     fn column_name(&self, index: usize) -> &str;
-    fn value(&self, index: usize) -> Result<Value, Error>;
+    fn value(&self, index: usize) -> Result<NOrmValue, Error>;
 }
 
 /// 拥有所有权的行，列名与列值都是克隆出来的。
 #[derive(Clone, Debug, PartialEq)]
-pub struct OwnedRow {
+pub struct NOrmOwnedRow {
     names: Vec<String>,
-    values: Vec<Value>,
+    values: Vec<NOrmValue>,
 }
 
-impl OwnedRow {
-    pub fn new(names: Vec<String>, values: Vec<Value>) -> Self {
+impl NOrmOwnedRow {
+    pub fn new(names: Vec<String>, values: Vec<NOrmValue>) -> Self {
         assert_eq!(
             names.len(),
             values.len(),
-            "OwnedRow: 列名与列值数量必须一致"
+            "NOrmOwnedRow: 列名与列值数量必须一致"
         );
         Self { names, values }
     }
@@ -35,12 +35,12 @@ impl OwnedRow {
         &self.names
     }
 
-    pub fn values(&self) -> &[Value] {
+    pub fn values(&self) -> &[NOrmValue] {
         &self.values
     }
 }
 
-impl Row for OwnedRow {
+impl NOrmRow for NOrmOwnedRow {
     fn column_count(&self) -> usize {
         self.names.len()
     }
@@ -49,7 +49,7 @@ impl Row for OwnedRow {
         &self.names[index]
     }
 
-    fn value(&self, index: usize) -> Result<Value, Error> {
+    fn value(&self, index: usize) -> Result<NOrmValue, Error> {
         self.values.get(index).cloned().ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidInput,
@@ -65,13 +65,13 @@ mod test {
 
     #[test]
     fn test_owned_row() {
-        let row = OwnedRow::new(
+        let row = NOrmOwnedRow::new(
             vec!["id".into(), "name".into()],
-            vec![Value::I64(1), Value::Text("alice".into())],
+            vec![NOrmValue::I64(1), NOrmValue::Text("alice".into())],
         );
         assert_eq!(row.column_count(), 2);
         assert_eq!(row.column_name(1), "name");
-        assert_eq!(row.value(0).unwrap(), Value::I64(1));
+        assert_eq!(row.value(0).unwrap(), NOrmValue::I64(1));
         assert_eq!(row.value(9).unwrap_err().kind(), ErrorKind::InvalidInput);
     }
 }

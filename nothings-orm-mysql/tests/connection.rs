@@ -3,13 +3,13 @@ mod common;
 use std::io::ErrorKind;
 
 use common::TestDb;
-use nothings_orm::driver::Driver;
-use nothings_orm::value::Value;
-use nothings_orm_mysql::MysqlDriver;
+use nothings_orm::driver::NOrmDriver;
+use nothings_orm::value::NOrmValue;
+use nothings_orm_mysql::NOrmMysqlDriver;
 
 #[test]
 fn test_connect_failure() {
-    let err = MysqlDriver::connect("mysql://root:definitely_wrong@127.0.0.1:1/nope")
+    let err = NOrmMysqlDriver::connect("mysql://root:definitely_wrong@127.0.0.1:1/nope")
         .err()
         .expect("端口 1 上不该有 MySQL 服务");
     assert!(matches!(
@@ -41,7 +41,7 @@ fn test_execute_ddl() {
             &[],
         )
         .unwrap();
-    assert_eq!(rows[0].values()[0], Value::I64(1));
+    assert_eq!(rows[0].values()[0], NOrmValue::I64(1));
     db.driver.execute_ddl("DROP TABLE ddl_probe").unwrap();
 }
 
@@ -62,5 +62,5 @@ fn test_multi_statement_behavior() {
             &[],
         )
         .unwrap();
-    assert_eq!(rows[0].values()[0], Value::I64(2));
+    assert_eq!(rows[0].values()[0], NOrmValue::I64(2));
 }

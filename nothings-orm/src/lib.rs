@@ -1,5 +1,6 @@
 extern crate self as nothings_orm;
 
+pub mod condition;
 pub mod driver;
 pub mod entity;
 pub mod query;
@@ -8,4 +9,4 @@ pub mod row;
 pub mod schema;
 pub mod value;
 
-pub use nothings_macros::Entity;
+pub use nothings_macros::NOrmEntity;

@@ -6,7 +6,7 @@
 
 | crate | 角色 | 是否必需 |
 | --- | --- | --- |
-| `nothings-orm` | 核心：`Entity` / `Schema` / `Driver` / `Repository` / `QueryBuilder`，零 DB 依赖 | 必需 |
+| `nothings-orm` | 核心：`NOrmEntity` / `NOrmSchema` / `NOrmDriver` / `NOrmRepository` / `NOrmQueryBuilder`，零 DB 依赖 | 必需 |
 | `nothings-orm-sqlite` | SQLite 驱动（rusqlite bundled，纯 C 内置） | 二选一 |
 | `nothings-orm-mysql` | MySQL 驱动（同步 `mysql` crate，`minimal-rust` 纯 Rust） | 二选一 |
 
@@ -18,17 +18,17 @@
 
 1. [依赖配置](#1-依赖配置)
 2. [定义实体](#2-定义实体)
-3. [Schema 元数据](#3-schema-元数据)
+3. [NOrmSchema 元数据](#3-schema-元数据)
 4. [建表与连接](#4-建表与连接)
 5. [CRUD：增删改查](#5-crud增删改查)
-6. [QueryBuilder：条件 / 排序 / 分页 / 计数](#6-querybuilder条件--排序--分页--计数)
+6. [NOrmQueryBuilder：条件 / 排序 / 分页 / 计数](#6-querybuilder条件--排序--分页--计数)
 7. [事务](#7-事务)
 8. [错误处理](#8-错误处理)
 9. [值类型与映射](#9-值类型与映射)
-10. [直接使用 Driver 与 Row](#10-直接使用-driver-与-row)
+10. [直接使用 NOrmDriver 与 NOrmRow](#10-直接使用-driver-与-row)
 11. [两个驱动的差异](#11-两个驱动的差异)
 12. [完整可运行示例](#12-完整可运行示例)
-13. [自定义一个 Driver](#13-自定义一个-driver)
+13. [自定义一个 NOrmDriver](#13-自定义一个-driver)
 14. [已知边界与常见坑](#14-已知边界与常见坑)
 15. [能力清单：不做的事](#15-能力清单不做的事)
 
@@ -62,12 +62,12 @@ nothings-orm-mysql = { path = "../nothings-orm-mysql" }
 
 ## 2. 定义实体
 
-用 `#[derive(Entity)]` 声明一张表。**这是唯一需要写的结构性代码**——Schema、行解码、按列名取值全部由宏生成。
+用 `#[derive(NOrmEntity)]` 声明一张表。**这是唯一需要写的结构性代码**——NOrmSchema、行解码、按列名取值全部由宏生成。
 
 ```rust
-use nothings_orm::Entity;
+use nothings_orm::NOrmEntity;
 
-#[derive(Debug, Clone, PartialEq, Entity)]
+#[derive(Debug, Clone, PartialEq, NOrmEntity)]
 #[entity(table = "users")]
 struct User {
     #[entity(primary_key, column = "id")]
@@ -90,20 +90,20 @@ struct User {
 | 字段 | `#[entity(column = "user_name")]` | 否 | DB 列名；不写则用 Rust 字段名 |
 | 字段 | `#[entity(nullable)]` | 否 | 可空；`Option<T>` 会自动推断，无需手写 |
 
-支持的字段类型：`i8/i16/i32/i64/u8/u16/u32`、`f32/f64`、`bool`、`String`、`Vec<u8>`、`DateTime`、`Option<T>`（T 为上述类型）。**不支持** `u64`、`&str`、Decimal、JSON 作为实体字段类型（见第 9 节）。时间列请用 `DateTime`，不要用 `String`（读回会得到 `Value::DateTime`，`String` 会报 `InvalidData`）。
+支持的字段类型：`i8/i16/i32/i64/u8/u16/u32`、`f32/f64`、`bool`、`String`、`Vec<u8>`、`NOrmDateTime`、`Option<T>`（T 为上述类型）。**不支持** `u64`、`&str`、Decimal、JSON 作为实体字段类型（见第 9 节）。时间列请用 `NOrmDateTime`，不要用 `String`（读回会得到 `NOrmValue::NOrmDateTime`，`String` 会报 `InvalidData`）。
 
 > ⚠️ `entity` 属性里写的 `column` 是 **DB 列名**。后面所有 `where` / `order_by` 传的都是这个名字，不是 Rust 字段名。上面 `name` 字段对应 `user_name`，写 `r#where("name", ...)` 会得到 `InvalidInput`。这是最容易踩的坑。
 
-主键设计假设：一个整数自增主键。`Repository::insert` 会把主键列从 INSERT 里排除，靠 `last_insert_id()` 回读。DDL 必须写成 `INTEGER PRIMARY KEY`（SQLite）或 `BIGINT AUTO_INCREMENT PRIMARY KEY`（MySQL）。
+主键设计假设：一个整数自增主键。`NOrmRepository::insert` 会把主键列从 INSERT 里排除，靠 `last_insert_id()` 回读。DDL 必须写成 `INTEGER PRIMARY KEY`（SQLite）或 `BIGINT AUTO_INCREMENT PRIMARY KEY`（MySQL）。
 
 ---
 
-## 3. Schema 元数据
+## 3. NOrmSchema 元数据
 
-派生宏会为实体生成 `Schema` 实现，可以在编译期拿到表结构：
+派生宏会为实体生成 `NOrmSchema` 实现，可以在编译期拿到表结构：
 
 ```rust
-use nothings_orm::schema::Schema;
+use nothings_orm::schema::NOrmSchema;
 
 assert_eq!(User::TABLE, "users");
 assert_eq!(User::COLUMNS.len(), 4);
@@ -115,7 +115,7 @@ for col in User::COLUMNS {
 }
 ```
 
-`Column` 字段：`field`（Rust 字段名）、`name`（DB 列名）、`sql_type`（`Integer`/`Real`/`Text`/`Blob`）、`nullable`、`primary_key`。
+`NOrmColumn` 字段：`field`（Rust 字段名）、`name`（DB 列名）、`sql_type`（`Integer`/`Real`/`Text`/`Blob`）、`nullable`、`primary_key`。
 
 `validate_column::<User>("user_name")` 会做白名单校验，非法列名返回 `InvalidInput`。
 
@@ -128,9 +128,9 @@ for col in User::COLUMNS {
 **SQLite**（内存库，测试首选）：
 
 ```rust
-use nothings_orm_sqlite::SqliteDriver;
+use nothings_orm_sqlite::NOrmSqliteDriver;
 
-let mut driver = SqliteDriver::in_memory().unwrap();
+let mut driver = NOrmSqliteDriver::in_memory().unwrap();
 driver.execute_batch(
     "CREATE TABLE users (
         id INTEGER PRIMARY KEY,
@@ -141,15 +141,15 @@ driver.execute_batch(
 ).unwrap();
 
 // 持久化到文件
-// let mut driver = SqliteDriver::open("app.db").unwrap();
+// let mut driver = NOrmSqliteDriver::open("app.db").unwrap();
 ```
 
 **MySQL**：
 
 ```rust
-use nothings_orm_mysql::MysqlDriver;
+use nothings_orm_mysql::NOrmMysqlDriver;
 
-let mut driver = MysqlDriver::connect("mysql://root:pwd@127.0.0.1:3306/app").unwrap();
+let mut driver = NOrmMysqlDriver::connect("mysql://root:pwd@127.0.0.1:3306/app").unwrap();
 driver.execute_ddl(
     "CREATE TABLE users (
         id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -166,13 +166,13 @@ driver.execute_ddl(
 
 ## 5. CRUD：增删改查
 
-全部入口是 `Repository::new(&mut driver)`。它持有驱动的可变借用，因此同一时刻只能有一个 repo；需要直接用 driver 时，让 repo 的作用域先结束。
+全部入口是 `NOrmRepository::new(&mut driver)`。它持有驱动的可变借用，因此同一时刻只能有一个 repo；需要直接用 driver 时，让 repo 的作用域先结束。
 
 ```rust
-use nothings_orm::repository::Repository;
-use nothings_orm::value::Value;
+use nothings_orm::repository::NOrmRepository;
+use nothings_orm::value::NOrmValue;
 
-let mut repo = Repository::new(&mut driver);
+let mut repo = NOrmRepository::new(&mut driver);
 
 // 插入 —— 返回自增主键，实体里的 id 会被忽略
 let alice = User {
@@ -185,10 +185,10 @@ let id = repo.insert(&alice).unwrap();
 assert_eq!(id, 1);	
 
 // 按主键取 —— 找不到返回 Err(NotFound)
-let got: User = repo.get(Value::I64(id)).unwrap();
+let got: User = repo.get(NOrmValue::I64(id)).unwrap();
 
 // 按主键取 —— 找不到返回 Ok(None)，不算错误
-let maybe = repo.find_one::<User>(Value::I64(999)).unwrap();
+let maybe = repo.find_one::<User>(NOrmValue::I64(999)).unwrap();
 assert!(maybe.is_none());
 
 // 取全部
@@ -200,7 +200,7 @@ updated.email = Some("new@example.com".into());
 assert_eq!(repo.update(&updated).unwrap(), 1);
 
 // 删除 —— 按主键删，返回受影响行数
-assert_eq!(repo.delete::<User>(Value::I64(id)).unwrap(), 1);
+assert_eq!(repo.delete::<User>(NOrmValue::I64(id)).unwrap(), 1);
 ```
 
 方法清单：
@@ -208,29 +208,29 @@ assert_eq!(repo.delete::<User>(Value::I64(id)).unwrap(), 1);
 | 方法 | 签名要点 | 返回 |
 | --- | --- | --- |
 | `insert::<E>` | `&E` | `Result<i64>` 新主键 |
-| `get::<E>` | `Value` 主键 | `Result<E>`，未找到 `NotFound` |
-| `find_one::<E>` | `Value` 主键 | `Result<Option<E>>` |
+| `get::<E>` | `NOrmValue` 主键 | `Result<E>`，未找到 `NotFound` |
+| `find_one::<E>` | `NOrmValue` 主键 | `Result<Option<E>>` |
 | `find_all::<E>` | 无 | `Result<Vec<E>>` |
 | `update::<E>` | `&E` | `Result<usize>` 受影响行数 |
-| `delete::<E>` | `Value` 主键 | `Result<usize>` 受影响行数 |
+| `delete::<E>` | `NOrmValue` 主键 | `Result<usize>` 受影响行数 |
 
-`Value` 是运行时列值：`Null` / `Bool` / `I64` / `F64` / `Text` / `Blob`。主键传 `Value::I64(id)`。
+`NOrmValue` 是运行时列值：`Null` / `Bool` / `I64` / `F64` / `Text` / `Blob`。主键传 `NOrmValue::I64(id)`。
 
-Trait 方法 `from_row` / `pk_value` / `column_value` 需要显式导入 trait，因为 crate 根的同名 `Entity` 是派生宏：
+Trait 方法 `from_row` / `pk_value` / `column_value` 需要显式导入 trait，因为 crate 根的同名 `NOrmEntity` 是派生宏：
 
 ```rust
-use nothings_orm::entity::Entity as EntityTrait;
+use nothings_orm::entity::NOrmEntity as EntityTrait;
 
-assert_eq!(<User as EntityTrait>::pk_value(&got), Value::I64(1));
+assert_eq!(<User as EntityTrait>::pk_value(&got), NOrmValue::I64(1));
 assert_eq!(
     <User as EntityTrait>::column_value(&got, "user_name").unwrap(),
-    Value::Text("alice".into()),
+    NOrmValue::Text("alice".into()),
 );
 ```
 
 ---
 
-## 6. QueryBuilder：条件 / 排序 / 分页 / 计数
+## 6. NOrmQueryBuilder：条件 / 排序 / 分页 / 计数
 
 `repo.query::<E>()` 返回链式构建器，方法返回 `&mut Self`。
 
@@ -263,8 +263,30 @@ let page = repo
 let n = repo.query::<User>().count().unwrap();
 ```
 
-- 多个 `r#where` 用 `AND` 串联，**只支持等值**，没有 OR / LIKE / IN / 比较运算。
-- `r#where` 的第二个参数接受任何 `ToValue`（含 `&str` / `String` / 数字 / `bool`）。
+```rust
+use nothings_orm::condition::{NOrmCondition, NOrmOperator};
+
+// OR + 比较运算：链式入口
+let rows = repo
+    .query::<User>()
+    .r#where("active", true)
+    .or_where("user_name", "alice")
+    .where_op("id", NOrmOperator::Gt, 10i64)
+    .all()
+    .unwrap();
+
+// 嵌套 + NOT：(id > ? OR user_name = ?) AND NOT (email IS NULL)
+let cond = NOrmCondition::<User>::gt("id", 10i64)
+    .or(NOrmCondition::eq("user_name", "alice"))
+    .and(!NOrmCondition::is_null("email"));
+let rows = repo.query::<User>().where_condition(cond).all().unwrap();
+```
+
+- 链式条件按调用顺序**从左到右**结合（左折叠）：每个方法用自身携带的连接词接到已累积条件上，构建器不按 SQL 优先级重排，渲染器用最小括号还原该顺序。
+- 链式入口：`r#where` / `and_where` / `or_where` / `not_where`（等值），`where_op` / `or_where_op`（比较运算）。首项 `or_where` 退化为裸首项。
+- `NOrmCondition` 树通过 `where_condition` / `or_where_condition` / `not_where_condition` 注入，可表达嵌套与 NOT 取反；构造器 `eq/ne/gt/ge/lt/le/like/not_like/cmp`、`in_list/not_in_list`、`is_null/is_not_null`，组合器 `and/or/group`，取反用 `!` 运算符（实现 `std::ops::Not`）。
+- `IN` 空列表折叠为 `0 = 1` / `1 = 1`；LIKE 通配符由调用方在 pattern 里提供；`NOrmCondition` 独立构造时需写 `NOrmCondition::<User>::...`（参数里不含实体类型）。
+- 第二个参数接受任何 `NOrmToValue`（含 `&str` / `String` / 数字 / `bool`）。
 - `order_by(column, asc)` 的 `asc` 为 `true` 升序、`false` 降序。
 - 列名必须在 `E::COLUMNS` 的 **DB 列名**白名单内。非法列名不会在构造时报错，而是延后到 `all()` / `one()` / `count()` 抛 `InvalidInput`：
 
@@ -321,7 +343,7 @@ assert_eq!(nested.kind(), ErrorKind::InvalidInput);
 | 其它 | 保留 `std::io::Error` 原有的 kind（如连接 `ConnectionRefused`） |
 
 ```rust
-match repo.get::<User>(Value::I64(999)) {
+match repo.get::<User>(NOrmValue::I64(999)) {
     Ok(u) => println!("找到 {u:?}"),
     Err(e) if e.kind() == ErrorKind::NotFound => println!("没有这个用户"),
     Err(e) => eprintln!("其它错误: {e}"),
@@ -334,104 +356,104 @@ match repo.get::<User>(Value::I64(999)) {
 
 ### 支持的 Rust 类型
 
-| Rust 类型 | `SqlType` | 说明 |
+| Rust 类型 | `NOrmSqlType` | 说明 |
 | --- | --- | --- |
-| `i8`/`i16`/`i32`/`i64`/`u8`/`u16`/`u32` | `Integer` | 统一走 `Value::I64` |
-| `f32`/`f64` | `Real` | 统一走 `Value::F64` |
+| `i8`/`i16`/`i32`/`i64`/`u8`/`u16`/`u32` | `Integer` | 统一走 `NOrmValue::I64` |
+| `f32`/`f64` | `Real` | 统一走 `NOrmValue::F64` |
 | `bool` | `Integer` | 0/1 |
 | `String` | `Text` | |
 | `Vec<u8>` | `Blob` | |
-| `DateTime` | `Text` | 墙钟时间，参与 MySQL 双时区自动转换 |
-| `Option<T>` | 同 T | `None` ↔ `Value::Null` |
+| `NOrmDateTime` | `Text` | 墙钟时间，参与 MySQL 双时区自动转换 |
+| `Option<T>` | 同 T | `None` ↔ `NOrmValue::Null` |
 
-`&str` 实现了 `ToValue`（可直接当查询参数），但**不能作实体字段**（没有 `FromValue` / `HasSqlType`）。
+`&str` 实现了 `NOrmToValue`（可直接当查询参数），但**不能作实体字段**（没有 `NOrmFromValue` / `NOrmHasSqlType`）。
 
-缺失：`u64`、`i128`、`usize`、Decimal、UUID、JSON 的原生支持。日期时间用 `DateTime`（见 9.1），或 `i64` Unix 时间戳。
+缺失：`u64`、`i128`、`usize`、Decimal、UUID、JSON 的原生支持。日期时间用 `NOrmDateTime`（见 9.1），或 `i64` Unix 时间戳。
 
 ### MySQL 特有类型的降级
 
-`Value` 只有六种变体，MySQL 的其它类型按下面规则降级（无类型保真）：
+`NOrmValue` 只有六种变体，MySQL 的其它类型按下面规则降级（无类型保真）：
 
 | MySQL 类型 | 映射为 | 说明 |
 | --- | --- | --- |
-| `DATETIME` / `DATE` / `TIME` / `TIMESTAMP` | `Value::Text` | 格式化字符串，如 `2026-01-02 03:04:05` |
-| `DECIMAL` / `NEWDECIMAL` | `Value::Text` | 字符串，避免精度丢失 |
-| `JSON` | `Value::Text` | 原始 JSON 文本 |
-| `TINYINT` | `Value::I64` | `bool::from_value` 会把非 0 当 true |
-| `BIGINT UNSIGNED` ≤ `i64::MAX` | `Value::I64` | |
+| `DATETIME` / `DATE` / `TIME` / `TIMESTAMP` | `NOrmValue::Text` | 格式化字符串，如 `2026-01-02 03:04:05` |
+| `DECIMAL` / `NEWDECIMAL` | `NOrmValue::Text` | 字符串，避免精度丢失 |
+| `JSON` | `NOrmValue::Text` | 原始 JSON 文本 |
+| `TINYINT` | `NOrmValue::I64` | `bool::from_value` 会把非 0 当 true |
+| `BIGINT UNSIGNED` ≤ `i64::MAX` | `NOrmValue::I64` | |
 | `BIGINT UNSIGNED` > `i64::MAX` | `Err(InvalidData)` | 放不下就报错，不静默截断 |
 
 Text 与 Blob 的区分**靠列元数据**（`ColumnType` + `BINARY_FLAG` + charset），不靠 UTF-8 试探——BLOB 内容可能恰好是合法 UTF-8，而 JSON/DECIMAL 自带 binary charset。
 
 ### 9.1 时区与日期时间（MySQL）
 
-core 提供零依赖的 `UtcOffset`（固定偏移）与 `DateTime`（墙钟）。**自动转换只对 `Value::DateTime` 生效**，`Text` / `I64` 一律不转——避免误伤 DECIMAL / JSON / 普通字符串。
+core 提供零依赖的 `NOrmUtcOffset`（固定偏移）与 `NOrmDateTime`（墙钟）。**自动转换只对 `NOrmValue::NOrmDateTime` 生效**，`Text` / `I64` 一律不转——避免误伤 DECIMAL / JSON / 普通字符串。
 
 ```rust
-use nothings_orm::value::{DateTime, UtcOffset};
-use nothings_orm_mysql::MysqlDriver;
+use nothings_orm::value::{NOrmDateTime, NOrmUtcOffset};
+use nothings_orm_mysql::NOrmMysqlDriver;
 
 // 旧入口：UTC/UTC，不做转换（既有代码零改动）
-let mut driver = MysqlDriver::connect(dsn)?;
+let mut driver = NOrmMysqlDriver::connect(dsn)?;
 
 // 双时区：ORM=东八区墙钟，DB 中时间按 UTC 表达
-let orm_tz = UtcOffset::parse("+08:00")?;
-let db_tz = UtcOffset::UTC;
-let mut driver = MysqlDriver::connect_with_tz(dsn, orm_tz, db_tz)?;
+let orm_tz = NOrmUtcOffset::parse("+08:00")?;
+let db_tz = NOrmUtcOffset::UTC;
+let mut driver = NOrmMysqlDriver::connect_with_tz(dsn, orm_tz, db_tz)?;
 ```
 
 语义：
 
-- **写入**：`Value::DateTime(09:00 +08:00)` → `01:00 UTC` 写库。查询条件 `r#where("at", dt)` 走**同一条路径**，无需额外处理。
-- **读取**：`TIMESTAMP` / `DATETIME` 列 → 按 DB→ORM 换算 → `Value::DateTime`。`DATE` / `TIME` / `YEAR` → `Text`（无完整墙钟）。
-- **语义统一**：所有时间列读回 `Value::DateTime`，不分入口。`String` 字段会读到 `InvalidData`，**必须改用 `DateTime` 字段**。
+- **写入**：`NOrmValue::NOrmDateTime(09:00 +08:00)` → `01:00 UTC` 写库。查询条件 `r#where("at", dt)` 走**同一条路径**，无需额外处理。
+- **读取**：`TIMESTAMP` / `DATETIME` 列 → 按 DB→ORM 换算 → `NOrmValue::NOrmDateTime`。`DATE` / `TIME` / `YEAR` → `Text`（无完整墙钟）。
+- **语义统一**：所有时间列读回 `NOrmValue::NOrmDateTime`，不分入口。`String` 字段会读到 `InvalidData`，**必须改用 `NOrmDateTime` 字段**。
 - `i64` Unix 时间戳不受影响，原样存取。
 - 会话时区通过 `OptsBuilder::init` 下发 `SET time_zone`（DSN 不接受 `?timezone=`），连接后校验；`init` 在连接重置时自动重放。
 - 固定偏移**不含 DST**，不支持 `Asia/Shanghai` 这类命名时区的自动夏令时。
-- **SQLite 驱动不做时区转换**：`DateTime` 按墙钟原样写 TEXT，读回走 `FromValue` 的 Text 解析兜底。
+- **SQLite 驱动不做时区转换**：`NOrmDateTime` 按墙钟原样写 TEXT，读回走 `NOrmFromValue` 的 Text 解析兜底。
 
 微秒需要列声明为 `DATETIME(6)` / `TIMESTAMP(6)`，MySQL 默认精度是 0 位小数。外部程序绕过 ORM 直写 DATETIME 字面量的数据，不保证转换语义正确。
 
 ---
 
-## 10. 直接使用 Driver 与 Row
+## 10. 直接使用 NOrmDriver 与 NOrmRow
 
-绕过 Repository，直接发参数化 SQL。`Driver` trait 需要显式导入才能调方法。
+绕过 NOrmRepository，直接发参数化 SQL。`NOrmDriver` trait 需要显式导入才能调方法。
 
 ```rust
-use nothings_orm::driver::Driver;
-use nothings_orm::row::Row;
-use nothings_orm::value::Value;
+use nothings_orm::driver::NOrmDriver;
+use nothings_orm::row::NOrmRow;
+use nothings_orm::value::NOrmValue;
 
 let rows = driver.query("SELECT id, user_name FROM users", &[]).unwrap();
-assert_eq!(Row::column_name(&rows[0], 1), "user_name");
-assert_eq!(Row::value(&rows[0], 1).unwrap(), Value::Text("alice".into()));
+assert_eq!(NOrmRow::column_name(&rows[0], 1), "user_name");
+assert_eq!(NOrmRow::value(&rows[0], 1).unwrap(), NOrmValue::Text("alice".into()));
 
 let affected = driver
     .execute(
         "UPDATE users SET active = ? WHERE id = ?",
-        &[Value::Bool(false), Value::I64(1)],
+        &[NOrmValue::Bool(false), NOrmValue::I64(1)],
     )
     .unwrap();
 
 let last_id = driver.last_insert_id().unwrap();
 ```
 
-`Driver` 六个方法：
+`NOrmDriver` 六个方法：
 
 | 方法 | 说明 |
 | --- | --- |
-| `execute(&mut self, sql, &[Value]) -> Result<usize>` | 非查询，返回受影响行数 |
-| `query(&mut self, sql, &[Value]) -> Result<Vec<OwnedRow>>` | 查询，**全量物化**为 owned 行 |
+| `execute(&mut self, sql, &[NOrmValue]) -> Result<usize>` | 非查询，返回受影响行数 |
+| `query(&mut self, sql, &[NOrmValue]) -> Result<Vec<NOrmOwnedRow>>` | 查询，**全量物化**为 owned 行 |
 | `last_insert_id(&self) -> Result<i64>` | 最近插入主键 |
 | `begin` / `commit` / `rollback(&mut self)` | 事务 |
 
-`OwnedRow` 提供 `names()` / `values()`，也实现 `Row` trait。驱动必须保证 `query` 返回的列名与实体 `#[entity(column = ...)]` **大小写敏感精确匹配**。
+`NOrmOwnedRow` 提供 `names()` / `values()`，也实现 `NOrmRow` trait。驱动必须保证 `query` 返回的列名与实体 `#[entity(column = ...)]` **大小写敏感精确匹配**。
 
 手工解码一行：
 
 ```rust
-use nothings_orm::entity::Entity as EntityTrait;
+use nothings_orm::entity::NOrmEntity as EntityTrait;
 
 let rows = driver.query("SELECT id, user_name, email, active FROM users", &[]).unwrap();
 let u = <User as EntityTrait>::from_row(&rows[0]).unwrap();
@@ -441,7 +463,7 @@ let u = <User as EntityTrait>::from_row(&rows[0]).unwrap();
 
 ## 11. 两个驱动的差异
 
-| 项 | `SqliteDriver` | `MysqlDriver` |
+| 项 | `NOrmSqliteDriver` | `NOrmMysqlDriver` |
 | --- | --- | --- |
 | 构造 | `open(path)` / `in_memory()` | `connect(url)` |
 | DDL 入口 | `execute_batch(sql)` | `execute_ddl(sql)` |
@@ -451,7 +473,7 @@ let u = <User as EntityTrait>::from_row(&rows[0]).unwrap();
 | 多语句 | 支持 | 实测也支持（客户端开启 `CLIENT_MULTI_STATEMENTS`），但不承诺 |
 | 连接 | 一条连接，非 `Sync` | 一条连接，非 `Sync` |
 | 连接字符串 | 文件路径 | `mysql://user:pass@host:port/db` |
-| 时区自动转换 | **不支持**（按墙钟原样写 TEXT） | `connect_with_tz(orm_tz, db_tz)` 双向转换，仅对 `Value::DateTime` 生效 |
+| 时区自动转换 | **不支持**（按墙钟原样写 TEXT） | `connect_with_tz(orm_tz, db_tz)` 双向转换，仅对 `NOrmValue::NOrmDateTime` 生效 |
 | 测试 | 内存库，零外部依赖 | **必须连真实 MySQL**，缺 `NOTHINGS_MYSQL_DSN` 直接失败 |
 
 MySQL 集成测试的 DSN 不带 database，账号需有 `CREATE/DROP DATABASE` 权限：
@@ -470,13 +492,13 @@ cargo test --manifest-path nothings-orm-mysql/Cargo.toml
 ```rust
 use std::io::ErrorKind;
 
-use nothings_orm::Entity;
-use nothings_orm::entity::Entity as EntityTrait;
-use nothings_orm::repository::Repository;
-use nothings_orm::value::Value;
-use nothings_orm_sqlite::SqliteDriver;
+use nothings_orm::NOrmEntity;
+use nothings_orm::entity::NOrmEntity as EntityTrait;
+use nothings_orm::repository::NOrmRepository;
+use nothings_orm::value::NOrmValue;
+use nothings_orm_sqlite::NOrmSqliteDriver;
 
-#[derive(Debug, Clone, PartialEq, Entity)]
+#[derive(Debug, Clone, PartialEq, NOrmEntity)]
 #[entity(table = "users")]
 struct User {
     #[entity(primary_key, column = "id")]
@@ -490,7 +512,7 @@ struct User {
 }
 
 fn main() {
-    let mut driver = SqliteDriver::in_memory().unwrap();
+    let mut driver = NOrmSqliteDriver::in_memory().unwrap();
     driver.execute_batch(
         "CREATE TABLE users (
             id INTEGER PRIMARY KEY,
@@ -501,7 +523,7 @@ fn main() {
     ).unwrap();
 
     // 插入 + 回读主键
-    let mut repo = Repository::new(&mut driver);
+    let mut repo = NOrmRepository::new(&mut driver);
     let id = repo.insert(&User {
         id: 0,
         name: "alice".into(),
@@ -510,8 +532,8 @@ fn main() {
     }).unwrap();
     assert_eq!(id, 1);
 
-    let got: User = repo.get(Value::I64(id)).unwrap();
-    assert_eq!(<User as EntityTrait>::pk_value(&got), Value::I64(1));
+    let got: User = repo.get(NOrmValue::I64(id)).unwrap();
+    assert_eq!(<User as EntityTrait>::pk_value(&got), NOrmValue::I64(1));
 
     // 查询构建
     let rows = repo.query::<User>()
@@ -542,12 +564,12 @@ fn main() {
 
 ### MySQL 版
 
-把 `SqliteDriver::in_memory()` 换成 `MysqlDriver::connect(&dsn)`、`execute_batch` 换成 `execute_ddl`，DDL 换成 MySQL 方言，其余代码**完全不变**：
+把 `NOrmSqliteDriver::in_memory()` 换成 `NOrmMysqlDriver::connect(&dsn)`、`execute_batch` 换成 `execute_ddl`，DDL 换成 MySQL 方言，其余代码**完全不变**：
 
 ```rust
-use nothings_orm_mysql::MysqlDriver;
+use nothings_orm_mysql::NOrmMysqlDriver;
 
-let mut driver = MysqlDriver::connect("mysql://root:pwd@127.0.0.1:3306/app").unwrap();
+let mut driver = NOrmMysqlDriver::connect("mysql://root:pwd@127.0.0.1:3306/app").unwrap();
 driver.execute_ddl(
     "CREATE TABLE users (
         id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -556,21 +578,21 @@ driver.execute_ddl(
         active TINYINT NOT NULL DEFAULT 0
     )",
 ).unwrap();
-// 后续 Repository 代码与 SQLite 版一致
+// 后续 NOrmRepository 代码与 SQLite 版一致
 ```
 
 ---
 
-## 13. 自定义一个 Driver
+## 13. 自定义一个 NOrmDriver
 
-任何数据库都能接入：实现 `nothings_orm::driver::Driver` 的六个方法即可。核心库零 DB 依赖，SQL 模板由 `Repository` / `QueryBuilder` 生成，驱动只负责执行和物化行。
+任何数据库都能接入：实现 `nothings_orm::driver::NOrmDriver` 的六个方法即可。核心库零 DB 依赖，SQL 模板由 `NOrmRepository` / `NOrmQueryBuilder` 生成，驱动只负责执行和物化行。
 
 trait 定义（这是你要实现的契约，不是可直接运行的代码）：
 
 ```rust
-pub trait Driver {
-    fn execute(&mut self, sql: &str, params: &[Value]) -> Result<usize, Error>;
-    fn query(&mut self, sql: &str, params: &[Value]) -> Result<Vec<OwnedRow>, Error>;
+pub trait NOrmDriver {
+    fn execute(&mut self, sql: &str, params: &[NOrmValue]) -> Result<usize, Error>;
+    fn query(&mut self, sql: &str, params: &[NOrmValue]) -> Result<Vec<NOrmOwnedRow>, Error>;
     fn last_insert_id(&self) -> Result<i64, Error>;
     fn begin(&mut self) -> Result<(), Error>;
     fn commit(&mut self) -> Result<(), Error>;
@@ -582,22 +604,22 @@ pub trait Driver {
 
 ```rust
 use std::io::{Error, ErrorKind};
-use nothings_orm::driver::Driver;
-use nothings_orm::row::OwnedRow;
-use nothings_orm::value::Value;
+use nothings_orm::driver::NOrmDriver;
+use nothings_orm::row::NOrmOwnedRow;
+use nothings_orm::value::NOrmValue;
 
 struct MyDriver { /* 你的连接 */ }
 
-impl Driver for MyDriver {
-    fn execute(&mut self, sql: &str, params: &[Value]) -> Result<usize, Error> {
+impl NOrmDriver for MyDriver {
+    fn execute(&mut self, sql: &str, params: &[NOrmValue]) -> Result<usize, Error> {
         // 1. 用 ? 占位符 + params 绑定，绝不拼接值
         // 2. 返回受影响行数
         unimplemented!()
     }
 
-    fn query(&mut self, sql: &str, params: &[Value]) -> Result<Vec<OwnedRow>, Error> {
+    fn query(&mut self, sql: &str, params: &[NOrmValue]) -> Result<Vec<NOrmOwnedRow>, Error> {
         // 1. 用 ? 占位符 + params 绑定
-        // 2. 全量物化：每行构造 OwnedRow::new(names, values)
+        // 2. 全量物化：每行构造 NOrmOwnedRow::new(names, values)
         // 3. 列名原样保留，不改大小写、不加前缀
         unimplemented!()
     }
@@ -613,7 +635,7 @@ impl Driver for MyDriver {
 
 1. **占位符是 `?`**，值走 `params` 绑定。核心生成的 SQL 就是裸 `?`，不能改成 `$1` 之类的风格。
 2. `query` 返回的列名必须与实体 `#[entity(column = ...)]` 精确一致（大小写敏感）。`COUNT(*) AS __count` 的别名必须原样保留——`count()` 靠列名 `__count` 找值。
-3. `execute` 返回前要准备好 `last_insert_id`，因为 `Repository::insert` 紧接着就调它。
+3. `execute` 返回前要准备好 `last_insert_id`，因为 `NOrmRepository::insert` 紧接着就调它。
 4. 错误用 `std::io::Error` + `ErrorKind`。orphan rule 下不能 `impl From<第三方错误> for io::Error`，用固有函数 `to_io` 映射。
 5. 值映射：`Null` / `Bool`（→0/1）/ `I64` / `F64` / `Text` / `Blob` 六种。
 
@@ -632,12 +654,12 @@ impl Driver for MyDriver {
 | MySQL `offset()` | 单独调用生成 `SELECT ... OFFSET n`，MySQL 报 1064 | 必须搭配 `limit()`；`one()` 自带 limit，`get`/`find_one` 不受影响 |
 | 主键不自增 | `insert` 返回的主键不对 | DDL 写 `INTEGER PRIMARY KEY` 或 `AUTO_INCREMENT PRIMARY KEY` |
 | 类型缺失 | DATE/TIME/Decimal/JSON 读回是 `Text`，`u64` 编译不过 | 用 `String` / `i64` 承接，按第 9 节降级规则处理 |
-| 时间列用 `String` 接 | TIMESTAMP/DATETIME 读回 `Value::DateTime`，`String` 字段报 `InvalidData` | 字段改用 `DateTime`，需要字符串时 `dt.to_string()` |
-| 时区不生效 | 传 `Value::Text` 存时间字符串 | 只有 `Value::DateTime` 参与自动转换；`Text` / `I64` 原样存取 |
+| 时间列用 `String` 接 | TIMESTAMP/DATETIME 读回 `NOrmValue::NOrmDateTime`，`String` 字段报 `InvalidData` | 字段改用 `NOrmDateTime`，需要字符串时 `dt.to_string()` |
+| 时区不生效 | 传 `NOrmValue::Text` 存时间字符串 | 只有 `NOrmValue::NOrmDateTime` 参与自动转换；`Text` / `I64` 原样存取 |
 | 微秒丢失 | 列声明 `DATETIME`（默认 0 位小数） | 改用 `DATETIME(6)` / `TIMESTAMP(6)` |
 | 列名大小写 | 宏按列名精确匹配，大小写不同会报缺列 | DDL 与 `#[entity(column = ...)]` 字面完全一致 |
 | 嵌套事务 | `InvalidInput` | 只有一层，无 savepoint |
-| 借用冲突 | 同时持有两个 `Repository` 编译不过 | `Repository` 独占 `&mut driver`；分开作用域 |
+| 借用冲突 | 同时持有两个 `NOrmRepository` 编译不过 | `NOrmRepository` 独占 `&mut driver`；分开作用域 |
 | 并发 | 驱动非 `Sync`、无连接池 | 每线程一个驱动实例 |
 | 大结果集 | `query` 全量物化到内存 | 分页查询，别一次拉全表 |
 | DDL 在事务里 | 隐式提交破坏事务 | 事务块里只做 DML |
@@ -655,7 +677,6 @@ impl Driver for MyDriver {
 - Migration（建表靠驱动 DDL）
 - 软删除、时间戳钩子
 - 批量插入 / upsert
-- OR / LIKE / IN / 比较运算（只有等值 AND）
 - 复合主键、UUID 主键
 - 自定义错误类型（统一 `std::io::Error`）
 - SQL 日志、metrics
@@ -669,7 +690,7 @@ impl Driver for MyDriver {
 本文所有示例在以下环境实际编译并运行通过：
 
 - `rustc` / `cargo` 1.96.0，`aarch64-apple-darwin`
-- SQLite：`SqliteDriver::in_memory()`，覆盖 Schema 元数据、值转换、CRUD、QueryBuilder、注入防护、约束冲突、事务、裸 Driver、手工 `from_row`
-- MySQL：`MysqlDriver::connect`，MySQL 8.0.46（docker `mysql:8.0`），覆盖建库建表、insert/get、等值查询、count、UNIQUE 冲突、事务提交
+- SQLite：`NOrmSqliteDriver::in_memory()`，覆盖 NOrmSchema 元数据、值转换、CRUD、NOrmQueryBuilder、注入防护、约束冲突、事务、裸 NOrmDriver、手工 `from_row`
+- MySQL：`NOrmMysqlDriver::connect`，MySQL 8.0.46（docker `mysql:8.0`），覆盖建库建表、insert/get、等值查询、count、UNIQUE 冲突、事务提交
 
-MSRV 1.89+ 未单独实测（工具链下载受限），当前用 1.96 验证。详情见 [`ai/spec/51-mysql-driver-design.md`](ai/spec/51-mysql-driver-design.md)。
+MSRV 1.89+ 已实测通过：在当前工作区代码上用 `cargo +1.89.0 check --all-targets` 逐 crate 验证，5 个 manifest（根、`nothings-macros`、`nothings-orm`、`nothings-orm-sqlite`、`nothings-orm-mysql`）全部编译通过。本文示例的编译运行环境仍是 `rustc` / `cargo` 1.96.0（见上方）。详情见 [`ai/spec/51-mysql-driver-design.md`](ai/spec/51-mysql-driver-design.md)。

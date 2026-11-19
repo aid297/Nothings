@@ -3,8 +3,8 @@ mod common;
 use std::io::ErrorKind;
 
 use common::TestDb;
-use nothings_orm::driver::Driver;
-use nothings_orm::value::{DateTime, FromValue, Value};
+use nothings_orm::driver::NOrmDriver;
+use nothings_orm::value::{NOrmDateTime, NOrmFromValue, NOrmValue};
 
 #[test]
 fn test_type_downgrade() {
@@ -23,10 +23,10 @@ fn test_type_downgrade() {
         .execute(
             "INSERT INTO type_probe (dt, dec_col, js, flag) VALUES (?, ?, ?, ?)",
             &[
-                Value::DateTime(DateTime::parse("2026-01-02 03:04:05").unwrap()),
-                Value::Text("12.34".into()),
-                Value::Text("{\"a\":1}".into()),
-                Value::Bool(true),
+                NOrmValue::NOrmDateTime(NOrmDateTime::parse("2026-01-02 03:04:05").unwrap()),
+                NOrmValue::Text("12.34".into()),
+                NOrmValue::Text("{\"a\":1}".into()),
+                NOrmValue::Bool(true),
             ],
         )
         .unwrap();
@@ -35,15 +35,15 @@ fn test_type_downgrade() {
         .driver
         .query("SELECT dt, dec_col, js, flag FROM type_probe", &[])
         .unwrap();
-    // DATETIME 统一读回 DateTime；DECIMAL / JSON 降级为 Text。
+    // DATETIME 统一读回 NOrmDateTime；DECIMAL / JSON 降级为 Text。
     assert_eq!(
         rows[0].values()[0],
-        Value::DateTime(DateTime::parse("2026-01-02 03:04:05").unwrap())
+        NOrmValue::NOrmDateTime(NOrmDateTime::parse("2026-01-02 03:04:05").unwrap())
     );
-    assert!(matches!(rows[0].values()[1], Value::Text(_)));
-    assert!(matches!(rows[0].values()[2], Value::Text(_)));
+    assert!(matches!(rows[0].values()[1], NOrmValue::Text(_)));
+    assert!(matches!(rows[0].values()[2], NOrmValue::Text(_)));
     // Bool 写入 TINYINT，读回 I64。
-    assert_eq!(rows[0].values()[3], Value::I64(1));
+    assert_eq!(rows[0].values()[3], NOrmValue::I64(1));
     assert!(bool::from_value(&rows[0].values()[3]).unwrap());
 }
 
@@ -66,10 +66,10 @@ fn test_utf8_and_blob_roundtrip() {
         .execute(
             "INSERT INTO users (name, email, active, payload) VALUES (?, ?, ?, ?)",
             &[
-                Value::Text("中文 Alice".into()),
-                Value::Text("a@example.com".into()),
-                Value::Bool(false),
-                Value::Blob(bytes.clone()),
+                NOrmValue::Text("中文 Alice".into()),
+                NOrmValue::Text("a@example.com".into()),
+                NOrmValue::Bool(false),
+                NOrmValue::Blob(bytes.clone()),
             ],
         )
         .unwrap();
@@ -78,6 +78,6 @@ fn test_utf8_and_blob_roundtrip() {
         .driver
         .query("SELECT name, email, active, payload FROM users", &[])
         .unwrap();
-    assert_eq!(rows[0].values()[0], Value::Text("中文 Alice".into()));
-    assert_eq!(rows[0].values()[3], Value::Blob(bytes));
+    assert_eq!(rows[0].values()[0], NOrmValue::Text("中文 Alice".into()));
+    assert_eq!(rows[0].values()[3], NOrmValue::Blob(bytes));
 }

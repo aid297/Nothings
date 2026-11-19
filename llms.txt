@@ -8,7 +8,7 @@
 
 - [AGENTS.md](AGENTS.md): AI 编码约定、命令、模块地图、文档同步要求、禁用清单速查
 - [README.md](README.md): 人类可读的项目总览、安装、快速开始、已知问题表
-- [docs/orm-cookbook.md](docs/orm-cookbook.md): ORM 完整实战演示（实体/CRUD/查询/事务/两个驱动/自定义 Driver），示例实测可跑
+- [docs/orm-cookbook.md](docs/orm-cookbook.md): ORM 完整实战演示（实体/CRUD/查询/事务/两个驱动/自定义 NOrmDriver），示例实测可跑
 - [docs/ai/README.md](docs/ai/README.md): 面向 AI 的文档导航与维护约定
 
 ## 规格
@@ -27,7 +27,7 @@
 
 ## 独立 crate
 
-- [nothings-orm](nothings-orm/README.md): ORM 核心（Entity 派生宏、Schema、Driver、Repository、QueryBuilder）
+- [nothings-orm](nothings-orm/README.md): ORM 核心（NOrmEntity 派生宏、NOrmSchema、NOrmDriver、NOrmRepository、NOrmQueryBuilder）
 - [nothings-orm-sqlite](nothings-orm-sqlite/README.md): SQLite 驱动（rusqlite bundled）
 - [nothings-orm-mysql](nothings-orm-mysql/README.md): MySQL 驱动（同步 mysql crate、纯 Rust；测试强制真库）
 

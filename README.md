@@ -44,11 +44,11 @@ nothings-orm-mysql = "0.0.1"    # MySQL 驱动（同步 mysql crate，纯 Rust�
 
 | crate | 说明 | 文档 |
 |-------|------|------|
-| **nothings-orm** | `#[derive(Entity)]` 派生宏、静态 schema、`Driver` / `Repository` / `QueryBuilder`、CRUD 与事务 | [README](nothings-orm/README.md) |
-| **nothings-orm-sqlite** | `SqliteDriver`，rusqlite bundled 实现，仅 native | [README](nothings-orm-sqlite/README.md) |
-| **nothings-orm-mysql** | `MysqlDriver`，同步 `mysql` crate（`minimal-rust`，无 C/TLS 依赖）；集成测试需真实 MySQL | [README](nothings-orm-mysql/README.md) |
+| **nothings-orm** | `#[derive(NOrmEntity)]` 派生宏、静态 schema、`NOrmDriver` / `NOrmRepository` / `NOrmQueryBuilder`、CRUD 与事务；`NOrmCondition` / `NOrmOperator` 支持 OR、嵌套、NOT、比较运算 | [README](nothings-orm/README.md) |
+| **nothings-orm-sqlite** | `NOrmSqliteDriver`，rusqlite bundled 实现，仅 native | [README](nothings-orm-sqlite/README.md) |
+| **nothings-orm-mysql** | `NOrmMysqlDriver`，同步 `mysql` crate（`minimal-rust`，无 C/TLS 依赖）；集成测试需真实 MySQL | [README](nothings-orm-mysql/README.md) |
 
-**完整实战演示（推荐从这里开始）**：[docs/orm-cookbook.md](docs/orm-cookbook.md) —— 覆盖实体定义、CRUD、查询构建、事务、错误处理、类型映射、两个驱动与自定义 Driver，示例全部实测可跑。
+**完整实战演示（推荐从这里开始）**：[docs/orm-cookbook.md](docs/orm-cookbook.md) —— 覆盖实体定义、CRUD、查询构建、事务、错误处理、类型映射、两个驱动与自定义 NOrmDriver，示例全部实测可跑。
 
 设计文档：[docs/ai/spec/50-orm-design.md](docs/ai/spec/50-orm-design.md)（ORM 核心）、[docs/ai/spec/51-mysql-driver-design.md](docs/ai/spec/51-mysql-driver-design.md)（MySQL 驱动）。根 crate 零 DB 依赖，wasm 移除后所有 crate 都是纯 native。
 
@@ -309,9 +309,9 @@ match checker.check() {
 | HttpResponse | 没有 `Debug` / `Clone` / `PartialEq` / `Deserialize` | 不能 `{:?}` 打印、不能 `assert_eq!`、不能反序列化；只适合做服务端出参 |
 | Singletons | `impl_singleton!` 在外部 crate 编译失败（`E0603: trait 'Singleton' is private`） | **整个宏失效**，`instance()` / `default()` 也不会生成；按模块文档手写 `OnceLock<Mutex<T>>` |
 | nothings-orm-mysql | 标识符不加反引号，保留字列名会报 1064 | `E::COLUMNS` / `E::TABLE` 避开 MySQL 保留字；DDL 列名与 `#[entity(column = ...)]` 字面一致 |
-| nothings-orm-mysql | `QueryBuilder::offset()` 单独调用会生成 MySQL 不支持的 `SELECT ... OFFSET n` | 必须同时调用 `limit()`；`one()` 自带 `limit(1)`，`get` / `find_one` 不受影响 |
+| nothings-orm-mysql | `NOrmQueryBuilder::offset()` 单独调用会生成 MySQL 不支持的 `SELECT ... OFFSET n` | 必须同时调用 `limit()`；`one()` 自带 `limit(1)`，`get` / `find_one` 不受影响 |
 | nothings-orm-mysql | `execute_ddl` 不参数化且实测允许多语句；集成测试强制 DSN | DDL 只用固定字面量、绝不接用户输入；跑测试前设置 `NOTHINGS_MYSQL_DSN` |
-| nothings-orm-mysql | 时区自动转换只对 `Value::DateTime` 生效，TIMESTAMP/DATETIME 读回一律 `Value::DateTime` | 时间列字段改用 `DateTime`（`String` 会读失败）；SQLite 不支持自动转换；用 `connect_with_tz` 配置双时区 |
+| nothings-orm-mysql | 时区自动转换只对 `NOrmValue::NOrmDateTime` 生效，TIMESTAMP/DATETIME 读回一律 `NOrmValue::NOrmDateTime` | 时间列字段改用 `NOrmDateTime`（`String` 会读失败）；SQLite 不支持自动转换；用 `connect_with_tz` 配置双时区 |
 
 ## License
 
