@@ -136,6 +136,20 @@ impl NOrmDriver for NOrmSqliteDriver {
     fn rollback(&mut self) -> Result<(), Error> {
         self.conn.execute_batch("ROLLBACK").map_err(to_io)
     }
+
+    fn upsert_sql(
+        &self,
+        _table: &str,
+        pk: &str,
+        update_cols: &[&str],
+    ) -> Result<String, Error> {
+        let sets = update_cols
+            .iter()
+            .map(|c| format!("{c} = excluded.{c}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        Ok(format!(" ON CONFLICT({pk}) DO UPDATE SET {sets}"))
+    }
 }
 
 #[cfg(test)]

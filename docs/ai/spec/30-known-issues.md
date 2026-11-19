@@ -81,6 +81,9 @@
 | SD2 | **软删除的写语义** | 启用 soft_delete 时 `delete(pk)` 改 `UPDATE ... SET deleted_at=now() WHERE pk=? AND deleted_at IS NULL`；`hard_delete(pk)` 才是物理删除。`update()` 对已删行返回 0 受影响行。`insert()` 强制写 deleted_at=NULL，不依赖 DDL 默认值 |
 | TM1 | **自动时间 UTC 与时区** | `NOrmDateTime::now_utc()` 取 UTC 墙钟、微秒为 0，系统时间异常回退 epoch。MySQL 使用时间戳钩子时**必须** `connect_with_tz(orm_tz=UTC, ..)`，否则注入值被误当其它时区墙钟产生偏移；SQLite 原样写 TEXT 无此问题 |
 | TM2 | **时间戳总覆盖、不写回** | `created_at`/`updated_at` 列由 repository 注入 now_utc，**覆盖实体自带值**（无法用它回填历史时间，需裸 SQL）；`&E` 签名不变、实体字段不写回，需重新查询见新值。`update()` 把 created_at 从 SET 排除（含该标志的实体 UPDATE 列数变化），`insert()` 时 created_at == updated_at（同一 now） |
+| BT1 | **批量插入排除主键、非原子** | `insert_batch` 的 INSERT 排除主键列（依赖 DB 自增），实体自带主键被忽略；与 `insert` 共享托管列语义。单条语句参数最多 `BATCH_MAX_PARAMS`(900)，超出自动分块、每块独立 execute——**非原子**，要整体回滚请用 `transaction` 包裹。空切片返回 0 且不发 SQL |
+| BT2 | **upsert 须提供真实主键** | `upsert_batch` 的 INSERT **写入主键列**（取 `pk_value()`）以便唯一键冲突检测，与纯插入排除主键相反；调用方必须为实体填真实主键，否则冲突判断失效。更新列排除主键/软删列/created_at，保留 updated_at 用本批 now。MySQL 受影响行数语义特殊（插入计 1、更新计 2），返回值只宜判「非零」不宜当作新增行数 |
+| BT3 | **upsert 方言与驱动支持** | upsert SQL 尾句由 `NOrmDriver::upsert_sql` 生成：默认实现返回 `InvalidInput`（手写驱动零破坏）；内置 SQLite=`ON CONFLICT(pk) DO UPDATE SET c=excluded.c`、MySQL=`ON DUPLICATE KEY UPDATE c=VALUES(c)`。须在表上定义主键/唯一键，否则 MySQL 的冲突子句不生效（退化为纯插入）；尾句须以空格开头，列名来自 schema 白名单 |
 | MYSQL7 | **时区自动转换的边界** | 自动转换只对 `NOrmValue::NOrmDateTime` 生效，`NOrmValue::Text` / `I64` 一律不转（避免误伤 DECIMAL/JSON/普通字符串）。`connect_with_tz` 用 `OptsBuilder::init` 下发 `SET time_zone`，但会话设置对 DATETIME 内部无效——由驱动层墙钟换算补偿，外部直写 DATETIME 的数据不保证正确。**所有 TIMESTAMP/DATETIME 列读回一律 `NOrmValue::NOrmDateTime`，`String` 字段会读到 `InvalidData`，须改用 `NOrmDateTime` 字段**。固定偏移无 DST，不支持命名时区自动夏令时；SQLite 驱动不支持自动转换（按墙钟原样写 TEXT） |
 
 ## 4. 使用规则

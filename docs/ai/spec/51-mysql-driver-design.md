@@ -106,7 +106,7 @@ DATETIME / DATE / DECIMAL / JSON 一律降级为 `Text`，无类型保真。
 
 - 引入 Dialect 抽象 / 标识符反引号引用（保留字作为已知边界）。**2026-11-18 追加**：`NOrmValue` 枚举已因双时区需求扩展 `NOrmDateTime` 变体，原「零改动 core」边界被推翻，见「实现记录」。
 - 扩展 `NOrmValue` 枚举的 Decimal / Json / U64 变体；扩展派生宏属性。
-- async / tokio / 连接池 / TLS / Migration / 关联 / 钩子 / 批处理 / upsert / 复合主键 / 新公开错误类型。
+- async / tokio / 连接池 / TLS / Migration / 关联 / 复合主键 / 新公开错误类型。批处理 / upsert 已于 2026-11-19 通过 `NOrmDriver::upsert_sql` 方言方法实现，见 spec/50 Phase 6。
 - 命名时区（依赖 MySQL 时区表 + 自动 DST 规则）；固定偏移无 DST 是明确取舍。
 - 测试静默跳过 / `#[ignore]` / CI / Dockerfile。
 

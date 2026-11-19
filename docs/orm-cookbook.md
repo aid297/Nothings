@@ -775,12 +775,11 @@ impl NOrmDriver for MyDriver {
 - 连接池、缓存
 - 递归/多层关联预加载与懒加载均已支持，见 6.2
 - Migration（建表靠驱动 DDL）
-- 批量插入 / upsert
 - 复合主键、UUID 主键
 - 自定义错误类型（统一 `std::io::Error`）
 - SQL 日志、metrics
 
-软删除、时间戳钩子与自动时间已支持，见下方新增章节；其余在 Phase 2 路线里只规划未实现，见 [`ai/spec/50-orm-design.md`](ai/spec/50-orm-design.md)。
+软删除、时间戳钩子与自动时间、批量插入/upsert 均已支持，见下方新增章节；其余在 Phase 2 路线里只规划未实现，见 [`ai/spec/50-orm-design.md`](ai/spec/50-orm-design.md)。
 
 ---
 
@@ -807,6 +806,27 @@ struct Note {
 - 时间：`insert` 注入 created_at/updated_at（同一时刻），`update` 只刷新 updated_at。**总覆盖实体自带值、不写回内存实体**，需重新查询才见新值。
 - `NOrmDateTime::now_utc()` 取 UTC 墙钟（微秒为 0，零新依赖）。**MySQL 使用时间钩子必须用 `connect_with_tz(NOrmUtcOffset::UTC, db_tz)`**，否则注入值会偏移；SQLite 无此问题。
 - DDL 示例：`deleted_at DATETIME(6) NULL, created_at DATETIME(6) NOT NULL, updated_at DATETIME(6) NOT NULL`。
+
+---
+
+## 17. 批量插入 / upsert
+
+```rust
+// 批量插入：返回插入总行数；排除主键依赖自增；托管列语义同 insert。
+let rows = vec![Item { id: 0, name: "a".into(), qty: 1 }, /* ... */];
+let n = repo.insert_batch(&rows)?;
+
+// upsert：按主键/唯一键冲突时更新，否则插入。
+// 注意：必须为每个实体填真实主键值（INSERT 会写入主键列）。
+let rows = vec![Item { id: 1, name: "new".into(), qty: 9 }, /* ... */];
+let n = repo.upsert_batch(&rows)?;   // 未实现 upsert_sql 的驱动返回 InvalidInput
+```
+
+- `insert_batch(&[E]) -> usize`：空切片返回 0 且不发 SQL；软删列强制 NULL、时间列注入同一 now。
+- `upsert_batch(&[E]) -> usize`：**须提供真实主键**（`pk_value()`），否则冲突判断失效；更新列排除主键/软删列/created_at，保留 updated_at。MySQL 受影响行数「新增计 1、更新计 2」，只宜判非零。
+- 方言由驱动实现：SQLite `ON CONFLICT(pk) DO UPDATE SET c = excluded.c`；MySQL `ON DUPLICATE KEY UPDATE c = VALUES(c)`。手写驱动可用 `NOrmDriver::upsert_sql` 默认实现（返回 `InvalidInput`）。
+- 分块：单条 INSERT 参数不超过 900，自动分块、**非原子**；要整体回滚请用 `repo.transaction(|repo| { ... })` 包裹。
+- 需整体一致性的大批量写入推荐包一层事务；upsert 要求目标表有主键/唯一键。
 
 ---
 

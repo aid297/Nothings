@@ -88,6 +88,12 @@ repo.query::<User>().where_condition(cond).all()?;
 
 关联三者必须同时出现，字段不得再标 `primary_key` / `nullable` / `column`。查询时用 `preload("关系名")` 填充，见 cookbook 6.2。
 
+## 批量写入
+
+- `repo.insert_batch(&[E]) -> usize`：批量插入，排除主键依赖自增，托管列语义同 `insert`。
+- `repo.upsert_batch(&[E]) -> usize`：按主键/唯一键 upsert，**须为实体填真实主键**；更新列排除主键/软删列/created_at。
+- 方言由 `NOrmDriver::upsert_sql` 提供（默认 `InvalidInput`，SQLite/MySQL 内置实现）。单条 INSERT 参数 ≤900 自动分块、**非原子**，需整体事务请用 `transaction`。详见 cookbook §17。
+
 ## 错误处理
 
 所有公开 API 返回 `Result<_, std::io::Error>`，调用方按 `ErrorKind` 分支：

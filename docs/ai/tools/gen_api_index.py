@@ -106,6 +106,9 @@ ANNOTATIONS: dict[str, tuple[str, str]] = {
     "NOrmRepository::transaction": ("limited", "ORM3: 只支持单层事务，嵌套返回 InvalidInput；Err 路径自动 rollback"),
     "NOrmRepository::get": ("limited", "ORM4: 未找到返回 NotFound；find_one 则返 Ok(None)"),
     "NOrmSqliteDriver::execute_batch": ("limited", "ORM5: 直接执行原始 SQL，仅供 DDL/测试，不经过参数化"),
+    "NOrmRepository::insert_batch": ("limited", "BT1: 批量插入返回总行数，空切片返回 0；排除主键依赖自增；托管列同 insert；每批<=900 参数自动分块，非原子，需整体事务请用 transaction"),
+    "NOrmRepository::upsert_batch": ("limited", "BT2: 按主键/唯一键 upsert，须为实体提供真实主键值（INSERT 写入主键列）；更新列排除主键/软删列/created_at，保留 updated_at；依赖驱动 upsert_sql，不支持则 InvalidInput；分块非原子"),
+    "NOrmDriver::upsert_sql": ("limited", "BT3: 方言尾句默认返回 InvalidInput（手写驱动零破坏）；内置 SQLite 用 ON CONFLICT DO UPDATE、MySQL 用 ON DUPLICATE KEY UPDATE；返回值须以空格开头，列名来自 schema 白名单"),
     # 编号说明：生成器里的 ORM1-ORM5 与 spec/30 的 ORM1-ORM7 是两套历史编号，
     # 语义已错位，本次不重排；MySQL 驱动相关标注统一用 MYSQL* 前缀。
     "NOrmMysqlDriver::execute_ddl": ("limited", "MYSQL5: 单条原始 DDL，不参数化；实测客户端允许多语句，绝不接用户输入"),

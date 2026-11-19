@@ -306,6 +306,22 @@ impl NOrmDriver for NOrmMysqlDriver {
     fn rollback(&mut self) -> Result<(), Error> {
         self.conn.query_drop("ROLLBACK").map_err(to_io)
     }
+
+    fn upsert_sql(
+        &self,
+        _table: &str,
+        _pk: &str,
+        update_cols: &[&str],
+    ) -> Result<String, Error> {
+        // MySQL 8.0.20+ 推荐别名写法，但 VALUES() 仍兼容且 mysql 28.0 minimal
+        // 走二进制协议时同样可用；列值走 ? 参数化，这里只拼接白名单列名。
+        let sets = update_cols
+            .iter()
+            .map(|c| format!("{c} = VALUES({c})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        Ok(format!(" ON DUPLICATE KEY UPDATE {sets}"))
+    }
 }
 
 #[cfg(test)]

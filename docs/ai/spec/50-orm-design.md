@@ -159,6 +159,22 @@ query：NOrmQueryBuilder::preload(name: &'static str) where E: NOrmPreload
 
 **单表 SQL 逐字节一致的承诺仅对未启用软删除的实体成立**：启用后 SELECT/COUNT 的 WHERE 追加 `deleted_at IS NULL`，`unscoped()` 可恢复旧 SQL。未启用实体（含全部既有测试实体）输出与 Phase 1-4 完全一致。
 
+## Phase 6：批量插入 / upsert（2026-11-19 落地）
+
+方言差异下沉到驱动层，核心 crate 保持零 DB 依赖：
+
+```
+NOrmRepository { insert_batch(&[E]) -> usize; upsert_batch(&[E]) -> usize }
+NOrmDriver::upsert_sql(table, pk, update_cols) -> String   // 默认 InvalidInput，手写驱动零破坏
+  SQLite: ON CONFLICT(pk) DO UPDATE SET c = excluded.c
+  MySQL : ON DUPLICATE KEY UPDATE c = VALUES(c)
+```
+
+- `insert_batch`：排除主键列（依赖自增），托管列语义与 `insert` 相同（软删 NULL、时间注入同一 now）；空切片零 SQL。
+- `upsert_batch`：**INSERT 写入主键列**（取 `pk_value()`）以便冲突检测，更新列排除主键/软删列/created_at、保留 updated_at；未实现 `upsert_sql` 的驱动返回 `InvalidInput`。
+- 分块：单条多值 INSERT 参数不超过 `BATCH_MAX_PARAMS`(900)，按每行列数算每块行数自动分块；每块独立执行，**非原子**，需整体事务用 `transaction` 包裹。
+- 驱动两处 `upsert_sql` 实现约 8 行，核心/宏零改动；MySQL 受影响行数语义特殊（新增 1 / 更新 2），见 spec/30 BT2。
+
 ## 明确不做（YAGNI）
 
 async / tokio；workspace；Cargo features；新公开错误类型；thiserror / anyhow；`serde::Deserialize` 派生；Postgres 驱动；Migration 实现（SQL JOIN、递归 Preload 与时间戳钩子已实现，见 Phase 2/3/4/5）；trybuild；连接池、缓存、复合主键、UUID 主键、SQL 日志、metrics；改 C-ABI（仓库已移除 wasm 导出层）；`cargo fmt`；新增 CI / Dockerfile / examples / Makefile。

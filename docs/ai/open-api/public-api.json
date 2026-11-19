@@ -7067,6 +7067,22 @@
       "line": 24
     },
     {
+      "path": "nothings_orm::driver::NOrmDriver::upsert_sql",
+      "module": "nothings_orm::driver",
+      "kind": "fn",
+      "name": "upsert_sql",
+      "owner": "NOrmDriver",
+      "visibility": "inherited (trait method)",
+      "signature": "fn upsert_sql(&self, table: &str, pk: &str, update_cols: &[&str]) -> Result<String, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "BT3: 方言尾句默认返回 InvalidInput（手写驱动零破坏）；内置 SQLite 用 ON CONFLICT DO UPDATE、MySQL 用 ON DUPLICATE KEY UPDATE；返回值须以空格开头，列名来自 schema 白名单",
+      "platform": "all",
+      "file": "nothings-orm/src/driver.rs",
+      "line": 42
+    },
+    {
       "path": "nothings_orm::entity::NOrmEntity",
       "module": "nothings_orm::entity",
       "kind": "trait",
@@ -7746,7 +7762,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/repository.rs",
-      "line": 12
+      "line": 40
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::new",
@@ -7762,7 +7778,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 18
+      "line": 46
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::insert",
@@ -7778,7 +7794,39 @@
       "note": "TM3: deleted_at 强制写 NULL；created_at/updated_at 注入 now_utc 并覆盖实体自带值",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 30
+      "line": 58
+    },
+    {
+      "path": "nothings_orm::repository::NOrmRepository::insert_batch",
+      "module": "nothings_orm::repository",
+      "kind": "fn",
+      "name": "insert_batch",
+      "owner": "NOrmRepository",
+      "visibility": "pub",
+      "signature": "pub fn insert_batch<E: NOrmEntity>(&mut self, entities: &[E]) -> Result<usize, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "BT1: 批量插入返回总行数，空切片返回 0；排除主键依赖自增；托管列同 insert；每批<=900 参数自动分块，非原子，需整体事务请用 transaction",
+      "platform": "all",
+      "file": "nothings-orm/src/repository.rs",
+      "line": 90
+    },
+    {
+      "path": "nothings_orm::repository::NOrmRepository::upsert_batch",
+      "module": "nothings_orm::repository",
+      "kind": "fn",
+      "name": "upsert_batch",
+      "owner": "NOrmRepository",
+      "visibility": "pub",
+      "signature": "pub fn upsert_batch<E: NOrmEntity>(&mut self, entities: &[E]) -> Result<usize, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "BT2: 按主键/唯一键 upsert，须为实体提供真实主键值（INSERT 写入主键列）；更新列排除主键/软删列/created_at，保留 updated_at；依赖驱动 upsert_sql，不支持则 InvalidInput；分块非原子",
+      "platform": "all",
+      "file": "nothings-orm/src/repository.rs",
+      "line": 138
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::get",
@@ -7794,7 +7842,7 @@
       "note": "ORM4: 未找到返回 NotFound；find_one 则返 Ok(None)",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 69
+      "line": 195
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::find_one",
@@ -7810,7 +7858,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 80
+      "line": 206
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::find_all",
@@ -7826,7 +7874,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 86
+      "line": 212
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::update",
@@ -7842,7 +7890,7 @@
       "note": "TM2: created_at 从 SET 排除以保护原值；updated_at 注入 now_utc；有软删时只影响未删行",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 95
+      "line": 221
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::delete",
@@ -7858,7 +7906,7 @@
       "note": "SD2: 声明 soft_delete 时改为 UPDATE deleted_at=now() 且只影响 deleted_at IS NULL 的行；未声明则物理删除",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 146
+      "line": 272
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::hard_delete",
@@ -7874,7 +7922,7 @@
       "note": "SD3: 始终物理删除并绕过软删除，不可恢复",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 163
+      "line": 289
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::query",
@@ -7890,7 +7938,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 172
+      "line": 298
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::load_relation",
@@ -7906,7 +7954,7 @@
       "note": "PL5: 单实体原地填充，支持点分路径；逐实体调用产生 N+1，批量请用 query().preload(..)",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 180
+      "line": 306
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::transaction",
@@ -7922,7 +7970,7 @@
       "note": "ORM3: 只支持单层事务，嵌套返回 InvalidInput；Err 路径自动 rollback",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 196
+      "line": 322
     },
     {
       "path": "nothings_orm::row::NOrmRow",
@@ -9272,6 +9320,22 @@
       "line": 136
     },
     {
+      "path": "nothings_orm_sqlite::NOrmSqliteDriver::upsert_sql",
+      "module": "nothings_orm_sqlite",
+      "kind": "fn",
+      "name": "upsert_sql",
+      "owner": "NOrmSqliteDriver",
+      "visibility": "inherited (trait method)",
+      "signature": "fn upsert_sql(&self, _table: &str, pk: &str, update_cols: &[&str]) -> Result<String, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm-sqlite/src/lib.rs",
+      "line": 140
+    },
+    {
       "path": "nothings_orm_mysql::NOrmMysqlDriver",
       "module": "nothings_orm_mysql",
       "kind": "struct",
@@ -9429,17 +9493,33 @@
       "platform": "all",
       "file": "nothings-orm-mysql/src/lib.rs",
       "line": 306
+    },
+    {
+      "path": "nothings_orm_mysql::NOrmMysqlDriver::upsert_sql",
+      "module": "nothings_orm_mysql",
+      "kind": "fn",
+      "name": "upsert_sql",
+      "owner": "NOrmMysqlDriver",
+      "visibility": "inherited (trait method)",
+      "signature": "fn upsert_sql(&self, _table: &str, _pk: &str, update_cols: &[&str]) -> Result<String, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "platform": "all",
+      "file": "nothings-orm-mysql/src/lib.rs",
+      "line": 310
     }
   ],
   "exports": [],
   "counts": {
     "modules": 58,
-    "items": 559,
+    "items": 564,
     "by_kind": {
       "const": 19,
       "enum": 9,
       "field": 40,
-      "fn": 434,
+      "fn": 439,
       "macro": 4,
       "struct": 30,
       "trait": 18,
@@ -9447,8 +9527,8 @@
       "use": 4
     },
     "by_status": {
-      "limited": 61,
-      "ok": 419,
+      "limited": 64,
+      "ok": 421,
       "unimplemented": 79
     },
     "exports": 0

@@ -113,7 +113,7 @@ nothings-macros/      Cargo.toml src/{lib,entity}.rs
 | 四个 crate 各自 `cargo test --manifest-path ...` | 根 299+21；nothings-orm 40（36 单测含 16 项 WHERE 渲染断言 + 4 派生宏集成）；nothings-orm-sqlite 22（含 10 个新增条件集成）；nothings-orm-mysql 基线 29，另新增 6 个条件集成测试（已编译验证，本次环境无 `NOTHINGS_MYSQL_DSN` 未实跑） |
 | `cargo doc --no-deps` | 无 secrets 相关告警（历史记录） |
 | `cargo clippy --all-targets` | 0 error（存量 `mut_from_ref` deny 已修复）；其它存量告警不处理，只要求新增代码 0 告警 |
-| `python3 docs/ai/tools/gen_api_index.py --check` | 契约与源码一致：**559** 个公开 item（根 378 + orm 161 + sqlite 10 + mysql 10）、0 个 C-ABI 导出；`generator_version = 3`、4 个源根 / 4 个 crate |
+| `python3 docs/ai/tools/gen_api_index.py --check` | 契约与源码一致：**564** 个公开 item（根 378 + orm 166 + sqlite 10 + mysql 10）、0 个 C-ABI 导出；`generator_version = 3`、4 个源根 / 4 个 crate |
 
 ## 8. 版本与变更登记
 
@@ -134,6 +134,7 @@ nothings-macros/      Cargo.toml src/{lib,entity}.rs
 | 2026-11-19 | 修复 spec/30 的 A1-A7 七个失效 API：容器批量删除/shuffle/every、`Dir::join`、`impl_singleton!` 外部可见性、Lz4 分级压缩 | A1→A6 纯修复（两处签名对齐 trait：`AnyMap::every -> bool`、`remove_empty -> &mut Self`）；A7 新增 `lz4 = "1"`（bundled liblz4 HC，C 工具链必需，解压端 lz4_flex 不变），MSRV 1.89 实测通过；新增跨 crate 集成测试 `tests/singletons.rs`；契约 550 → **552 items**（`Singleton` trait + `with` 随公开化新增） |
 | 2026-11-19 | ORM 关联能力 Phase 4：`preload` 支持点分路径递归（`books.comments`，逐层批量非 N+1）、结果按目标主键去重、前缀路径自动合并；`NOrmPreload` 新增 provided `preload_one` / `preload_path`（宏生成多层实现，手写 impl 默认单层）；`NOrmRepository::load_relation` 懒加载 | 非破坏性（provided 默认方法 + 纯追加）；契约 552 → **555 items**；新增 PL4/PL5 边界；两驱动零改动 |
 | 2026-11-19 | ORM Phase 5：软删除 / 时间戳钩子 / 自动时间。字段标志 `soft_delete`/`created_at`/`updated_at`；`NOrmSchema` 三个带默认值的角色列常量 + `NOrmRelation::soft_delete_col`；`unscoped()` 与 `hard_delete()`；`NOrmDateTime::now_utc()` 零依赖 UTC 墙钟 | 非破坏性（默认值常量 + 纯追加）：未启用软删的实体 SQL 逐字节不变；契约 555 → **559 items**；新增 SD1-SD2/TM1-TM2 边界；时间戳 MySQL 连接须 `orm_tz=UTC` |
+| 2026-11-19 | ORM Phase 6：批量插入 / upsert。`NOrmRepository::insert_batch` / `upsert_batch`；`NOrmDriver::upsert_sql` 方言方法（默认 InvalidInput，SQLite/MySQL 各自实现） | 非破坏性（带默认方法 + 纯追加）：契约 559 → **564 items**；新增 BT1-BT3 边界；每批 ≤900 参数自动分块且非原子；upsert 须提供真实主键 |
 
 ## 9. 明确不提供
 
