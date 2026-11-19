@@ -45,6 +45,9 @@ struct FieldInfo {
     nullable: bool,
     is_option: bool,
     relation: Option<RelationInfo>,
+    soft_delete: bool,
+    created_at: bool,
+    updated_at: bool,
 }
 
 /// 从 Meta::NameValue 里取字符串字面量。
@@ -122,6 +125,9 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                     let mut rel_name: Option<String> = None;
                     let mut rel_target: Option<Type> = None;
                     let mut rel_fk: Option<String> = None;
+                    let mut soft_delete = false;
+                    let mut created_at = false;
+                    let mut updated_at = false;
 
                     for attr in &field.attrs {
                         if !attr.path().is_ident("entity") {
@@ -136,6 +142,15 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                                 }
                                 Meta::Path(path) if path.is_ident("nullable") => {
                                     nullable = true;
+                                }
+                                Meta::Path(path) if path.is_ident("soft_delete") => {
+                                    soft_delete = true;
+                                }
+                                Meta::Path(path) if path.is_ident("created_at") => {
+                                    created_at = true;
+                                }
+                                Meta::Path(path) if path.is_ident("updated_at") => {
+                                    updated_at = true;
                                 }
                                 Meta::NameValue(nv) if nv.path.is_ident("column") => {
                                     column = lit_str(&nv.value, "column")?;
@@ -208,6 +223,63 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                     if is_option && relation.is_none() {
                         nullable = true;
                     }
+
+                    // 角色标志校验：互斥、类型必须是 NOrmDateTime / Option<NOrmDateTime>
+                    let roles = [soft_delete, created_at, updated_at]
+                        .iter()
+                        .filter(|b| **b)
+                        .count();
+                    if roles > 1 {
+                        return Err(syn::Error::new_spanned(
+                            field,
+                            "NOrmEntity: soft_delete / created_at / updated_at 不能标在同一字段",
+                        ));
+                    }
+                    if roles > 0 {
+                        if relation.is_some() {
+                            return Err(syn::Error::new_spanned(
+                                field,
+                                "NOrmEntity: 关联字段不能标 soft_delete / created_at / updated_at",
+                            ));
+                        }
+                        if primary_key {
+                            return Err(syn::Error::new_spanned(
+                                field,
+                                "NOrmEntity: 时间/软删除角色字段不能是 primary_key",
+                            ));
+                        }
+                        let inner: &Type = if is_option {
+                            let last = match &field.ty {
+                                Type::Path(p) => p.path.segments.last(),
+                                _ => None,
+                            };
+                            let first_arg = last.and_then(|s| match &s.arguments {
+                                syn::PathArguments::AngleBracketed(a) => a.args.first(),
+                                _ => None,
+                            });
+                            match first_arg {
+                                Some(syn::GenericArgument::Type(t)) => t,
+                                _ => &field.ty,
+                            }
+                        } else {
+                            &field.ty
+                        };
+                        let is_datetime = matches!(inner, Type::Path(p)
+                            if p.path.segments.last().map(|s| s.ident == "NOrmDateTime").unwrap_or(false));
+                        if !is_datetime {
+                            return Err(syn::Error::new_spanned(
+                                field,
+                                "NOrmEntity: soft_delete/created_at/updated_at 字段类型必须是 NOrmDateTime 或 Option<NOrmDateTime>",
+                            ));
+                        }
+                        if soft_delete && !is_option {
+                            return Err(syn::Error::new_spanned(
+                                field,
+                                "NOrmEntity: soft_delete 字段必须是 Option<NOrmDateTime>",
+                            ));
+                        }
+                    }
+
                     Ok(FieldInfo {
                         ident,
                         ty: field.ty.clone(),
@@ -216,6 +288,9 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                         nullable,
                         is_option,
                         relation,
+                        soft_delete,
+                        created_at,
+                        updated_at,
                     })
                 })
                 .collect::<syn::Result<Vec<_>>>()?,
@@ -364,9 +439,24 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                     foreign_key: #fk,
                     target_table: <#target as ::nothings_orm::schema::NOrmSchema>::TABLE,
                     target_columns: <#target as ::nothings_orm::schema::NOrmSchema>::COLUMNS,
+                    soft_delete_col: <#target as ::nothings_orm::schema::NOrmSchema>::SOFT_DELETE_COL,
                 }
             }
         });
+
+    // 角色列常量：find 第一个标注该角色的字段，取其数据库列名。
+    let role_const = |pick: fn(&FieldInfo) -> bool| -> proc_macro2::TokenStream {
+        match fields.iter().find(|f| pick(f)) {
+            Some(f) => {
+                let col = &f.column;
+                quote!(::std::option::Option::Some(#col))
+            }
+            None => quote!(::std::option::Option::None),
+        }
+    };
+    let soft_const = role_const(|f| f.soft_delete);
+    let created_const = role_const(|f| f.created_at);
+    let updated_const = role_const(|f| f.updated_at);
 
     // NOrmPreload::fill_relation：按关系名 match，分支里用宏展开期捕获的具体类型解码。
     let fill_arms = fields
@@ -474,6 +564,9 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
             const RELATIONS: &'static [::nothings_orm::schema::NOrmRelation] = &[
                 #(#relation_literals),*
             ];
+            const SOFT_DELETE_COL: ::std::option::Option<&'static str> = #soft_const;
+            const CREATED_AT_COL: ::std::option::Option<&'static str> = #created_const;
+            const UPDATED_AT_COL: ::std::option::Option<&'static str> = #updated_const;
             fn pk() -> &'static ::nothings_orm::schema::NOrmColumn {
                 &Self::COLUMNS[#pk_index]
             }

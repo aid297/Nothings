@@ -140,6 +140,19 @@ impl NOrmDateTime {
         }
     }
 
+    /// 取当前 UTC 墙钟。微秒为 0（复用 [`from_unix_secs`](Self::from_unix_secs)）；
+    /// 系统时间早于 UNIX_EPOCH 时回退为 1970-01-01 00:00:00。
+    ///
+    /// 使用时间戳钩子的 MySQL 连接须配置 `orm_tz = NOrmUtcOffset::UTC`，
+    /// 否则注入值会被误当成其它时区的墙钟而平移出错。
+    pub fn now_utc() -> Self {
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        Self::from_unix_secs(secs, &NOrmUtcOffset::UTC)
+    }
+
     /// 按分钟差平移墙钟（用于 ORM 时区与 DB 时区之间换算）。
     pub fn shifted_minutes(&self, delta_minutes: i32) -> Self {
         let total_secs = self.to_unix_secs(&NOrmUtcOffset::UTC) + i64::from(delta_minutes) * 60;
@@ -536,6 +549,29 @@ mod test {
         let dt2 = NOrmDateTime::new(2026, 6, 1, 0, 0, 0, 0).unwrap();
         let secs = dt2.to_unix_secs(&quarter);
         assert_eq!(NOrmDateTime::from_unix_secs(secs, &quarter), dt2);
+    }
+
+    #[test]
+    fn test_now_utc_is_current_utc_wall_clock() {
+        let before = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let now = NOrmDateTime::now_utc();
+        let after = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let got = now.to_unix_secs(&NOrmUtcOffset::UTC);
+        assert!(got >= before && got <= after, "UTC 墙钟 {got} 不在 [{before}, {after}]");
+    }
+
+    #[test]
+    fn test_now_utc_micros_is_zero() {
+        let now = NOrmDateTime::now_utc();
+        assert_eq!(now.micros, 0);
+        // 秒级精度下 Display 不带小数部分
+        assert_eq!(now.to_string().len(), 19);
     }
 
     #[test]

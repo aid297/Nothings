@@ -83,6 +83,8 @@ repo.query::<User>().where_condition(cond).all()?;
 | 字段 | `#[entity(nullable)]` | 可选，`Option<T>` 自动推断 |
 | 字段 | `#[entity(has_many = "books", target = "Book", foreign_key = "author_id")]` | 关联：一对多，填 `Vec<T>`；外键在目标表 |
 | 字段 | `#[entity(belongs_to = "author", target = "Author", foreign_key = "author_id")]` | 关联：多对一，填 `Option<T>`；外键在本表 |
+| 字段 | `#[entity(soft_delete)]` | 软删除列，须 `Option<NOrmDateTime>` |
+| 字段 | `#[entity(created_at)]` / `#[entity(updated_at)]` | 时间戳列，注入 `NOrmDateTime::now_utc()` |
 
 关联三者必须同时出现，字段不得再标 `primary_key` / `nullable` / `column`。查询时用 `preload("关系名")` 填充，见 cookbook 6.2。
 
@@ -126,8 +128,8 @@ use nothings_orm::value::NOrmDateTime;
 
 ## 生成器盲区
 
-`docs/ai/open-api/public-api.json` 由 `docs/ai/tools/gen_api_index.py` 从源码文本提取，**不展开过程宏**。`#[derive(NOrmEntity)]` 生成的方法（`NOrmSchema::TABLE/COLUMNS/RELATIONS/pk`、`NOrmEntity::from_row/pk_value/column_value`、`NOrmPreload::fill_relation/preload_one/preload_path`）不会出现在 JSON 中。查这些 API 请直接看本页与 `spec/50`。
+`docs/ai/open-api/public-api.json` 由 `docs/ai/tools/gen_api_index.py` 从源码文本提取，**不展开过程宏**。`#[derive(NOrmEntity)]` 生成的方法（`NOrmSchema::TABLE/COLUMNS/RELATIONS/pk`、`NOrmEntity::from_row/pk_value/column_value`、`NOrmPreload::fill_relation/preload_one/preload_path`、`NOrmSchema` 的角色列常量）不会出现在 JSON 中。查这些 API 请直接看本页与 `spec/50`。
 
 ## 不做
 
-async、连接池、缓存、Migration、软删除/时间戳钩子、Postgres 驱动（MySQL 驱动已由 `nothings-orm-mysql` 提供，设计见 `docs/ai/spec/51-mysql-driver-design.md`）。**SQL JOIN 与子查询已支持**（`join` / `all_with` / `where_in_subquery`，见 cookbook 6.1）；**关联预加载已支持**：`preload("books.comments")` 点分递归、结果按主键去重、`repo.load_relation(&mut entity, name)` 懒加载（见 cookbook 6.2）。Phase 2 路线见 `spec/50`。
+async、连接池、缓存、Migration、Postgres 驱动（MySQL 驱动已由 `nothings-orm-mysql` 提供，设计见 `docs/ai/spec/51-mysql-driver-design.md`）。**SQL JOIN 与子查询已支持**（`join` / `all_with` / `where_in_subquery`，见 cookbook 6.1）；**关联预加载已支持**：`preload("books.comments")` 点分递归、结果按主键去重、`repo.load_relation(&mut entity, name)` 懒加载（见 cookbook 6.2）。Phase 2 路线见 `spec/50`。

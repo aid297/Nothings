@@ -77,6 +77,10 @@
 | PL3 | **Preload 批量与 NULL 语义** | 批量 IN 每批最多 `NORM_PRELOAD_CHUNK_SIZE`（500）个键，自动分批；belongs_to 外键为 NULL 时关联字段保持 `None` 且不进 IN 列表；结果按目标主键去重（保留首次出现），跨父实体仍各自独立解码实例；手写 `NOrmEntity` 需自行实现 `NOrmPreload` 才能调用 `preload()` |
 | PL4 | **递归 Preload 的实体状态** | `NOrmPreload::preload_path` 由 `#[derive(NOrmEntity)]` 生成以支持多层；手写 impl 用 provided 默认实现，仅支持单层（多层报 `InvalidInput`）。递归中每层由 `from_row` 重新解码为独立实例，关联字段为空初值、仅由更深路径填充，不形成对象图环；错误路径下实体可能半填充（关联字段已被 take 出），状态未定义 |
 | PL5 | **懒加载 N+1** | `NOrmRepository::load_relation(&mut entity, name)` 单实体原地填充，支持点分路径；每次调用只查一个实体的关联，逐个调用产生 N+1，批量场景请用 `query().preload(..)` |
+| SD1 | **软删除只影响读过滤** | `unscoped()` 仅跳过 SELECT/COUNT 的 `deleted_at IS NULL`；`delete()`/`hard_delete()`/`update()` 是 Repository 方法不受其影响。JOIN 主表过滤为 `t0.deleted_at IS NULL`，Preload 关联查询各自独立过滤（不继承 unscoped）。用户条件为 OR 时整体加括号保证过滤不被抢占 |
+| SD2 | **软删除的写语义** | 启用 soft_delete 时 `delete(pk)` 改 `UPDATE ... SET deleted_at=now() WHERE pk=? AND deleted_at IS NULL`；`hard_delete(pk)` 才是物理删除。`update()` 对已删行返回 0 受影响行。`insert()` 强制写 deleted_at=NULL，不依赖 DDL 默认值 |
+| TM1 | **自动时间 UTC 与时区** | `NOrmDateTime::now_utc()` 取 UTC 墙钟、微秒为 0，系统时间异常回退 epoch。MySQL 使用时间戳钩子时**必须** `connect_with_tz(orm_tz=UTC, ..)`，否则注入值被误当其它时区墙钟产生偏移；SQLite 原样写 TEXT 无此问题 |
+| TM2 | **时间戳总覆盖、不写回** | `created_at`/`updated_at` 列由 repository 注入 now_utc，**覆盖实体自带值**（无法用它回填历史时间，需裸 SQL）；`&E` 签名不变、实体字段不写回，需重新查询见新值。`update()` 把 created_at 从 SET 排除（含该标志的实体 UPDATE 列数变化），`insert()` 时 created_at == updated_at（同一 now） |
 | MYSQL7 | **时区自动转换的边界** | 自动转换只对 `NOrmValue::NOrmDateTime` 生效，`NOrmValue::Text` / `I64` 一律不转（避免误伤 DECIMAL/JSON/普通字符串）。`connect_with_tz` 用 `OptsBuilder::init` 下发 `SET time_zone`，但会话设置对 DATETIME 内部无效——由驱动层墙钟换算补偿，外部直写 DATETIME 的数据不保证正确。**所有 TIMESTAMP/DATETIME 列读回一律 `NOrmValue::NOrmDateTime`，`String` 字段会读到 `InvalidData`，须改用 `NOrmDateTime` 字段**。固定偏移无 DST，不支持命名时区自动夏令时；SQLite 驱动不支持自动转换（按墙钟原样写 TEXT） |
 
 ## 4. 使用规则

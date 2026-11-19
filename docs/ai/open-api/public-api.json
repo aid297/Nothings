@@ -12,7 +12,7 @@
     {
       "name": "nothings",
       "manifest": "Cargo.toml",
-      "version": "0.0.9"
+      "version": "0.0.11"
     },
     {
       "name": "nothings-orm",
@@ -32,7 +32,7 @@
   ],
   "crate": {
     "name": "nothings",
-    "version": "0.0.9",
+    "version": "0.0.11",
     "edition": "2024",
     "description": "一个实用的工具库",
     "license": "MIT",
@@ -7347,7 +7347,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内，非法列名延后到 all()/one()/count() 报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 122
+      "line": 125
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::and_where",
@@ -7363,7 +7363,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内，非法列名延后到终结方法报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 127
+      "line": 130
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::or_where",
@@ -7379,7 +7379,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内；首项调用退化为裸首项；错误延后到终结方法报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 132
+      "line": 135
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::not_where",
@@ -7395,7 +7395,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内，错误延后到终结方法报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 137
+      "line": 140
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::where_op",
@@ -7411,7 +7411,7 @@
       "note": "ORM1: 列名必须在 E::COLUMNS 白名单内；In/NotIn/IsNull/IsNotNull 不接受单值；错误延后报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 143
+      "line": 146
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::or_where_op",
@@ -7427,7 +7427,7 @@
       "note": "ORM1: 同 where_op，连接词为 OR",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 148
+      "line": 151
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::where_condition",
@@ -7443,7 +7443,7 @@
       "note": "ORM1: 条件树叶子的列名必须在 E::COLUMNS 白名单内，错误延后报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 153
+      "line": 156
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::or_where_condition",
@@ -7459,7 +7459,7 @@
       "note": "ORM1: 同 where_condition，连接词为 OR",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 158
+      "line": 161
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::not_where_condition",
@@ -7475,7 +7475,7 @@
       "note": "ORM1: 同 where_condition，整树取反",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 163
+      "line": 166
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::join",
@@ -7491,7 +7491,7 @@
       "note": "JOIN1: ON 列名须为安全标识符且右列按 T::COLUMNS 白名单校验，错误延后到终结方法报 InvalidInput；多 JOIN 链左列只做标识符校验",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 174
+      "line": 177
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::where_qualified",
@@ -7507,7 +7507,7 @@
       "note": "JOIN2: T 列名必须在 T::COLUMNS 白名单内，且 alias 须与已声明 JOIN 的 tn 对应；错误延后报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 218
+      "line": 221
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::where_in_subquery",
@@ -7523,7 +7523,7 @@
       "note": "JOIN3: 子查询 SQL 是调用方字面量（禁止拼用户输入），值须走 NOrmSubquery::with_params 参数化",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 231
+      "line": 234
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::where_not_in_subquery",
@@ -7539,7 +7539,7 @@
       "note": "JOIN3: 同 where_in_subquery",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 236
+      "line": 239
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::where_exists",
@@ -7555,7 +7555,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 241
+      "line": 244
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::where_not_exists",
@@ -7571,7 +7571,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 246
+      "line": 249
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::order_by",
@@ -7587,7 +7587,7 @@
       "note": "ORM2: 列名必须在 E::COLUMNS 白名单内",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 250
+      "line": 253
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::limit",
@@ -7603,7 +7603,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 258
+      "line": 261
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::offset",
@@ -7619,7 +7619,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 263
+      "line": 266
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::preload",
@@ -7635,7 +7635,23 @@
       "note": "PL1: 支持点分路径 books.comments；首段构造期校验（错则延后报 InvalidInput 且零 SQL），后续段执行期逐层校验；重叠路径自动保留最长；每批最多 NORM_PRELOAD_CHUNK_SIZE(500) 键；需 E: NOrmPreload",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 275
+      "line": 278
+    },
+    {
+      "path": "nothings_orm::query::NOrmQueryBuilder::unscoped",
+      "module": "nothings_orm::query",
+      "kind": "fn",
+      "name": "unscoped",
+      "owner": "NOrmQueryBuilder",
+      "visibility": "pub",
+      "signature": "pub fn unscoped(&mut self) -> &mut Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "SD1: 跳过软删除自动过滤，仅影响读；delete/hard_delete/update 不受影响；须在终结方法前调用",
+      "platform": "all",
+      "file": "nothings-orm/src/query.rs",
+      "line": 319
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::all",
@@ -7651,7 +7667,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 391
+      "line": 436
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::all_with",
@@ -7667,7 +7683,7 @@
       "note": "JOIN4: 要求至少一条 JOIN，元组须为 1~4 元且元素个数与 JOIN 数+1 一致，否则报 InvalidInput",
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 419
+      "line": 464
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::one",
@@ -7683,7 +7699,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 439
+      "line": 484
     },
     {
       "path": "nothings_orm::query::NOrmQueryBuilder::count",
@@ -7699,7 +7715,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 449
+      "line": 494
     },
     {
       "path": "nothings_orm::query::NOrmValue::to_i64",
@@ -7715,7 +7731,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/query.rs",
-      "line": 632
+      "line": 691
     },
     {
       "path": "nothings_orm::repository::NOrmRepository",
@@ -7730,7 +7746,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/repository.rs",
-      "line": 11
+      "line": 12
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::new",
@@ -7746,7 +7762,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 17
+      "line": 18
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::insert",
@@ -7758,11 +7774,11 @@
       "signature": "pub fn insert<E: NOrmEntity>(&mut self, entity: &E) -> Result<i64, Error>",
       "cfg": null,
       "attributes": null,
-      "status": "ok",
-      "note": null,
+      "status": "limited",
+      "note": "TM3: deleted_at 强制写 NULL；created_at/updated_at 注入 now_utc 并覆盖实体自带值",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 29
+      "line": 30
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::get",
@@ -7778,7 +7794,7 @@
       "note": "ORM4: 未找到返回 NotFound；find_one 则返 Ok(None)",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 57
+      "line": 69
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::find_one",
@@ -7794,7 +7810,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 68
+      "line": 80
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::find_all",
@@ -7810,7 +7826,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 74
+      "line": 86
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::update",
@@ -7822,11 +7838,11 @@
       "signature": "pub fn update<E: NOrmEntity>(&mut self, entity: &E) -> Result<usize, Error>",
       "cfg": null,
       "attributes": null,
-      "status": "ok",
-      "note": null,
+      "status": "limited",
+      "note": "TM2: created_at 从 SET 排除以保护原值；updated_at 注入 now_utc；有软删时只影响未删行",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 79
+      "line": 95
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::delete",
@@ -7838,11 +7854,27 @@
       "signature": "pub fn delete<E: NOrmEntity>(&mut self, pk: NOrmValue) -> Result<usize, Error>",
       "cfg": null,
       "attributes": null,
-      "status": "ok",
-      "note": null,
+      "status": "limited",
+      "note": "SD2: 声明 soft_delete 时改为 UPDATE deleted_at=now() 且只影响 deleted_at IS NULL 的行；未声明则物理删除",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 111
+      "line": 146
+    },
+    {
+      "path": "nothings_orm::repository::NOrmRepository::hard_delete",
+      "module": "nothings_orm::repository",
+      "kind": "fn",
+      "name": "hard_delete",
+      "owner": "NOrmRepository",
+      "visibility": "pub",
+      "signature": "pub fn hard_delete<E: NOrmEntity>(&mut self, pk: NOrmValue) -> Result<usize, Error>",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "SD3: 始终物理删除并绕过软删除，不可恢复",
+      "platform": "all",
+      "file": "nothings-orm/src/repository.rs",
+      "line": 163
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::query",
@@ -7858,7 +7890,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 120
+      "line": 172
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::load_relation",
@@ -7874,7 +7906,7 @@
       "note": "PL5: 单实体原地填充，支持点分路径；逐实体调用产生 N+1，批量请用 query().preload(..)",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 128
+      "line": 180
     },
     {
       "path": "nothings_orm::repository::NOrmRepository::transaction",
@@ -7890,7 +7922,7 @@
       "note": "ORM3: 只支持单层事务，嵌套返回 InvalidInput；Err 路径自动 rollback",
       "platform": "all",
       "file": "nothings-orm/src/repository.rs",
-      "line": 144
+      "line": 196
     },
     {
       "path": "nothings_orm::row::NOrmRow",
@@ -8349,6 +8381,21 @@
       "line": 38
     },
     {
+      "path": "nothings_orm::schema::NOrmRelation::soft_delete_col",
+      "module": "nothings_orm::schema",
+      "kind": "field",
+      "name": "soft_delete_col",
+      "owner": "NOrmRelation",
+      "visibility": "pub",
+      "signature": "pub soft_delete_col: Option<&'static str>",
+      "cfg": null,
+      "attributes": null,
+      "status": "ok",
+      "note": null,
+      "file": "nothings-orm/src/schema.rs",
+      "line": 41
+    },
+    {
       "path": "nothings_orm::schema::NOrmSchema",
       "module": "nothings_orm::schema",
       "kind": "trait",
@@ -8361,7 +8408,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/schema.rs",
-      "line": 42
+      "line": 45
     },
     {
       "path": "nothings_orm::schema::NOrmSchema::pk",
@@ -8377,7 +8424,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/schema.rs",
-      "line": 48
+      "line": 57
     },
     {
       "path": "nothings_orm::schema::validate_column",
@@ -8393,7 +8440,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/schema.rs",
-      "line": 55
+      "line": 64
     },
     {
       "path": "nothings_orm::value::NOrmUtcOffset",
@@ -8671,6 +8718,22 @@
       "line": 127
     },
     {
+      "path": "nothings_orm::value::NOrmDateTime::now_utc",
+      "module": "nothings_orm::value",
+      "kind": "fn",
+      "name": "now_utc",
+      "owner": "NOrmDateTime",
+      "visibility": "pub",
+      "signature": "pub fn now_utc() -> Self",
+      "cfg": null,
+      "attributes": null,
+      "status": "limited",
+      "note": "TM1: UTC 墙钟，微秒为 0；系统时间早于 UNIX_EPOCH 回退 1970-01-01；MySQL 双时区要求 orm_tz=UTC",
+      "platform": "all",
+      "file": "nothings-orm/src/value.rs",
+      "line": 148
+    },
+    {
       "path": "nothings_orm::value::NOrmDateTime::shifted_minutes",
       "module": "nothings_orm::value",
       "kind": "fn",
@@ -8684,7 +8747,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 144
+      "line": 157
     },
     {
       "path": "nothings_orm::value::NOrmDateTime::parse",
@@ -8700,7 +8763,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 152
+      "line": 165
     },
     {
       "path": "nothings_orm::value::NOrmDateTime::fmt",
@@ -8716,7 +8779,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 224
+      "line": 237
     },
     {
       "path": "nothings_orm::value::NOrmValue",
@@ -8733,7 +8796,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 237
+      "line": 250
     },
     {
       "path": "nothings_orm::value::NOrmValue::to_value",
@@ -8749,7 +8812,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 249
+      "line": 262
     },
     {
       "path": "nothings_orm::value::NOrmValue::fmt",
@@ -8765,7 +8828,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 255
+      "line": 268
     },
     {
       "path": "nothings_orm::value::NOrmSqlType",
@@ -8782,7 +8845,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 270
+      "line": 283
     },
     {
       "path": "nothings_orm::value::NOrmToValue",
@@ -8797,7 +8860,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 278
+      "line": 291
     },
     {
       "path": "nothings_orm::value::NOrmToValue::to_value",
@@ -8813,7 +8876,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 279
+      "line": 292
     },
     {
       "path": "nothings_orm::value::NOrmFromValue",
@@ -8828,7 +8891,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 283
+      "line": 296
     },
     {
       "path": "nothings_orm::value::NOrmFromValue::from_value",
@@ -8844,7 +8907,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 284
+      "line": 297
     },
     {
       "path": "nothings_orm::value::NOrmHasSqlType",
@@ -8859,7 +8922,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 288
+      "line": 301
     },
     {
       "path": "nothings_orm::value::impl_integer!",
@@ -8873,7 +8936,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 299
+      "line": 312
     },
     {
       "path": "nothings_orm::value::impl_float!",
@@ -8887,7 +8950,7 @@
       "status": "ok",
       "note": null,
       "file": "nothings-orm/src/value.rs",
-      "line": 329
+      "line": 342
     },
     {
       "path": "nothings_orm::value::bool::to_value",
@@ -8903,7 +8966,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 359
+      "line": 372
     },
     {
       "path": "nothings_orm::value::bool::from_value",
@@ -8919,7 +8982,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 364
+      "line": 377
     },
     {
       "path": "nothings_orm::value::String::to_value",
@@ -8935,7 +8998,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 383
+      "line": 396
     },
     {
       "path": "nothings_orm::value::String::from_value",
@@ -8951,7 +9014,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 388
+      "line": 401
     },
     {
       "path": "nothings_orm::value::Vec::to_value",
@@ -8967,7 +9030,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 400
+      "line": 413
     },
     {
       "path": "nothings_orm::value::Vec::from_value",
@@ -8983,7 +9046,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 405
+      "line": 418
     },
     {
       "path": "nothings_orm::value::Option::to_value",
@@ -8999,7 +9062,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 417
+      "line": 430
     },
     {
       "path": "nothings_orm::value::Option::from_value",
@@ -9015,7 +9078,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 425
+      "line": 438
     },
     {
       "path": "nothings_orm::value::NOrmDateTime::to_value",
@@ -9031,7 +9094,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 437
+      "line": 450
     },
     {
       "path": "nothings_orm::value::NOrmDateTime::from_value",
@@ -9047,7 +9110,7 @@
       "note": null,
       "platform": "all",
       "file": "nothings-orm/src/value.rs",
-      "line": 443
+      "line": 456
     },
     {
       "path": "nothings_orm_sqlite::NOrmSqliteDriver",
@@ -9371,12 +9434,12 @@
   "exports": [],
   "counts": {
     "modules": 58,
-    "items": 555,
+    "items": 559,
     "by_kind": {
       "const": 19,
       "enum": 9,
-      "field": 39,
-      "fn": 431,
+      "field": 40,
+      "fn": 434,
       "macro": 4,
       "struct": 30,
       "trait": 18,
@@ -9384,8 +9447,8 @@
       "use": 4
     },
     "by_status": {
-      "limited": 55,
-      "ok": 421,
+      "limited": 61,
+      "ok": 419,
       "unimplemented": 79
     },
     "exports": 0

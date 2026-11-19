@@ -66,6 +66,8 @@ pub struct NOrmQueryBuilder<'a, E: NOrmEntity, D: NOrmDriver> {
     preloads: Vec<(&'static str, PreloadFn<E, D>)>,
     /// 未知关系名的校验错误，延后到终结方法暴露。
     preload_error: Option<String>,
+    /// 为 true 时跳过软删除自动过滤；只影响读，不影响写操作。
+    unscoped: bool,
     order: Option<(String, bool)>,
     /// order_by 的列名校验错误，延后到终结方法暴露。
     order_error: Option<String>,
@@ -98,6 +100,7 @@ impl<'a, E: NOrmEntity, D: NOrmDriver> NOrmQueryBuilder<'a, E, D> {
             join_error: None,
             preloads: Vec::new(),
             preload_error: None,
+            unscoped: false,
             order: None,
             order_error: None,
             limit: None,
@@ -310,7 +313,23 @@ impl<'a, E: NOrmEntity, D: NOrmDriver> NOrmQueryBuilder<'a, E, D> {
         self
     }
 
+    /// 跳过软删除自动过滤。只影响 SELECT / COUNT 等读路径，
+    /// 不影响 `delete()` / `hard_delete()` / `update()` 等写操作。
+    /// 须在 `all()` / `one()` / `count()` 等终结方法之前调用。
+    pub fn unscoped(&mut self) -> &mut Self {
+        self.unscoped = true;
+        self
+    }
+
     fn check_valid(&self) -> Result<(), Error> {
+        if let (false, Some(col)) = (self.unscoped, E::SOFT_DELETE_COL)
+            && validate_column::<E>(col).is_err()
+        {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!("表 {} 的软删除列 {} 不在 COLUMNS 白名单", E::TABLE, col),
+            ));
+        }
         if let Some(message) = &self.preload_error {
             return Err(Error::new(ErrorKind::InvalidInput, message.clone()));
         }
@@ -332,16 +351,42 @@ impl<'a, E: NOrmEntity, D: NOrmDriver> NOrmQueryBuilder<'a, E, D> {
     }
 
     /// 唯一的 WHERE 渲染入口：返回 (不含 " WHERE " 的片段, 参数)。
+    ///
+    /// 启用软删除且未调用 `unscoped()` 时，在用户条件前追加 `col IS NULL`。
+    /// 用户条件整体加括号，避免 `a = ? OR b = ?` 被 AND 抢占优先级。
+    /// 未启用软删除或未 scoped 时输出与改造前逐字节一致。
     fn render_where(&self) -> (Option<String>, Vec<NOrmValue>) {
-        match &self.where_ {
-            None => (None, Vec::new()),
-            Some(condition) => {
-                let mut sql = String::new();
-                let mut params = Vec::new();
-                condition.render_into(&mut sql, &mut params, self.default_alias());
-                (Some(sql), params)
-            }
+        let soft_col = if self.unscoped {
+            None
+        } else {
+            E::SOFT_DELETE_COL
+        };
+
+        // 用户条件原样渲染（NOrmCondition 无 Clone，不可复制条件树）
+        let mut params = Vec::new();
+        let mut user_sql = None;
+        if let Some(condition) = &self.where_ {
+            let mut sql = String::new();
+            condition.render_into(&mut sql, &mut params, self.default_alias());
+            user_sql = Some(sql);
         }
+
+        let Some(col) = soft_col else {
+            return (user_sql, params);
+        };
+
+        // 软删叶子借 is_null 渲染器获得规范列名 + JOIN 下的 t0. 前缀
+        let mut soft_sql = String::new();
+        let mut soft_params = Vec::new();
+        NOrmCondition::<E>::is_null(col)
+            .render_into(&mut soft_sql, &mut soft_params, self.default_alias());
+        debug_assert!(soft_params.is_empty(), "IS NULL 不应产生参数");
+
+        let combined = match user_sql {
+            None => soft_sql,
+            Some(user) => format!("{soft_sql} AND ({user})"),
+        };
+        (Some(combined), params)
     }
 
     fn build_select(&self) -> (String, Vec<NOrmValue>) {
@@ -540,14 +585,28 @@ pub(crate) fn apply_preload<E: NOrmPreload, D: NOrmDriver>(
         .collect::<Vec<_>>()
         .join(", ");
 
+    // 目标实体若启用软删除，关联查询也要过滤已删除行。
+    // 列名经目标表 COLUMNS 白名单校验，杜绝拼接非schema列。
+    let target_soft_col = rel.soft_delete_col.and_then(|c| {
+        rel.target_columns
+            .iter()
+            .find(|col| col.name == c)
+            .map(|col| col.name)
+    });
+
     // ⑤ 分批查询并合并行。
     let mut target_rows: Vec<NOrmOwnedRow> = Vec::new();
     for chunk in chunks {
         let placeholders = vec!["?"; chunk.len()].join(", ");
-        let sql = format!(
+        let mut sql = format!(
             "SELECT {} FROM {} WHERE {} IN ({})",
             select_cols, rel.target_table, in_col, placeholders
         );
+        if let Some(col) = target_soft_col {
+            sql.push_str(" AND ");
+            sql.push_str(col);
+            sql.push_str(" IS NULL");
+        }
         debug_assert_eq!(sql.matches('?').count(), chunk.len());
         target_rows.extend(driver.query(&sql, chunk)?);
     }
@@ -646,7 +705,24 @@ impl AsI64 for NOrmValue {
 mod test {
     use super::*;
     use crate::row::NOrmOwnedRow;
+    use crate::value::NOrmDateTime;
     use crate::NOrmEntity;
+
+    #[allow(dead_code)]
+    #[derive(Debug, NOrmEntity)]
+    #[entity(table = "soft")]
+    struct S {
+        #[entity(primary_key, column = "id")]
+        id: i64,
+        #[entity(column = "name")]
+        name: String,
+        #[entity(soft_delete, column = "deleted_at")]
+        deleted_at: Option<NOrmDateTime>,
+        #[entity(created_at)]
+        created_at: NOrmDateTime,
+        #[entity(updated_at)]
+        updated_at: NOrmDateTime,
+    }
 
     #[allow(dead_code)]
     #[derive(Debug, NOrmEntity)]
@@ -1481,5 +1557,225 @@ mod test {
             assert_eq!(err.kind(), ErrorKind::InvalidInput);
         }
         assert!(drv.calls.is_empty());
+    }
+
+    // ---------- 软删除查询过滤 ----------
+
+    #[test]
+    fn soft_delete_all_filters_by_default() {
+        let mut drv = RecordingDriver::default();
+        NOrmQueryBuilder::<S, _>::new(&mut drv).all().unwrap();
+        assert_eq!(select_where(&drv), "deleted_at IS NULL");
+    }
+
+    #[test]
+    fn soft_delete_and_user_condition_parenthesized() {
+        let mut drv = RecordingDriver::default();
+        NOrmQueryBuilder::<S, _>::new(&mut drv)
+            .r#where("id", 1i64)
+            .all()
+            .unwrap();
+        assert_eq!(select_where(&drv), "deleted_at IS NULL AND (id = ?)");
+    }
+
+    #[test]
+    fn soft_delete_or_condition_keeps_parentheses() {
+        let mut drv = RecordingDriver::default();
+        let cond = NOrmCondition::<S>::eq("id", 1i64).or(NOrmCondition::eq("id", 2i64));
+        NOrmQueryBuilder::<S, _>::new(&mut drv)
+            .where_condition(cond)
+            .all()
+            .unwrap();
+        assert_eq!(select_where(&drv), "deleted_at IS NULL AND (id = ? OR id = ?)");
+    }
+
+    #[test]
+    fn unscoped_restores_original_sql() {
+        let mut drv = RecordingDriver::default();
+        NOrmQueryBuilder::<S, _>::new(&mut drv)
+            .unscoped()
+            .all()
+            .unwrap();
+        assert_eq!(last(&drv).0, "SELECT id, name, deleted_at, created_at, updated_at FROM soft");
+
+        let mut drv = RecordingDriver::default();
+        NOrmQueryBuilder::<S, _>::new(&mut drv)
+            .unscoped()
+            .r#where("id", 1i64)
+            .all()
+            .unwrap();
+        assert_eq!(select_where(&drv), "id = ?");
+    }
+
+    #[test]
+    fn soft_delete_count_same_where() {
+        let mut drv = RecordingDriver::default();
+        NOrmQueryBuilder::<S, _>::new(&mut drv).count().unwrap();
+        assert_eq!(select_where(&drv), "deleted_at IS NULL");
+        assert_eq!(last(&drv).0, "SELECT COUNT(*) AS __count FROM soft WHERE deleted_at IS NULL");
+    }
+
+    #[test]
+    fn soft_delete_one_and_find_paths() {
+        // one() 走 all()
+        let mut drv = RecordingDriver::default();
+        NOrmQueryBuilder::<S, _>::new(&mut drv).one().unwrap();
+        assert!(select_where(&drv).starts_with("deleted_at IS NULL"));
+
+        // find_one() / get() 走 query().one()
+        let mut drv = RecordingDriver::default();
+        {
+            let mut repo = crate::repository::NOrmRepository::new(&mut drv);
+            let _ = repo.find_one::<S>(NOrmValue::I64(1)).unwrap();
+            let _ = repo.get::<S>(NOrmValue::I64(2));
+        }
+        assert_eq!(drv.calls.len(), 2);
+        for (sql, _) in &drv.calls {
+            assert!(sql.contains("deleted_at IS NULL"), "{sql}");
+        }
+    }
+
+    #[test]
+    fn non_soft_entity_sql_unchanged() {
+        let mut drv = RecordingDriver::default();
+        NOrmQueryBuilder::<T, _>::new(&mut drv).all().unwrap();
+        assert_eq!(last(&drv).0, "SELECT a, b, c, email FROM t");
+    }
+
+    #[test]
+    fn soft_delete_join_uses_t0_alias() {
+        let mut drv = RecordingDriver::default();
+        NOrmQueryBuilder::<S, _>::new(&mut drv)
+            .join::<T>(crate::join::NOrmJoinKind::Inner, &[("id", "a")])
+            .all()
+            .unwrap();
+        // JOIN 模式主表别名 t0，软删列同步限定为 t0.deleted_at
+        assert!(select_where(&drv).starts_with("t0.deleted_at IS NULL"), "{}", select_where(&drv));
+    }
+
+    #[test]
+    fn soft_delete_preload_target_filters_deleted() {
+        // 主表沿用 authors（PreloadDriver 识别），目标是软删实体 S
+        #[allow(dead_code)]
+        #[derive(Debug, NOrmEntity)]
+        #[entity(table = "authors")]
+        struct Parent {
+            #[entity(primary_key, column = "id")]
+            id: i64,
+            #[entity(has_many = "kids", target = "S", foreign_key = "name")]
+            kids: Vec<S>,
+        }
+        // 拦截关联 SQL 做精确断言
+        struct SpyDriver {
+            inner: PreloadDriver,
+            relation_sql: Option<String>,
+        }
+        impl NOrmDriver for SpyDriver {
+            fn execute(&mut self, _: &str, _: &[NOrmValue]) -> Result<usize, Error> { Ok(0) }
+            fn query(&mut self, sql: &str, params: &[NOrmValue]) -> Result<Vec<NOrmOwnedRow>, Error> {
+                if sql.contains(" IN (") && sql.contains("FROM soft") {
+                    self.relation_sql = Some(sql.to_string());
+                }
+                self.inner.query(sql, params)
+            }
+            fn last_insert_id(&self) -> Result<i64, Error> { Ok(0) }
+            fn begin(&mut self) -> Result<(), Error> { Ok(()) }
+            fn commit(&mut self) -> Result<(), Error> { Ok(()) }
+            fn rollback(&mut self) -> Result<(), Error> { Ok(()) }
+        }
+        let mut spy = SpyDriver {
+            inner: PreloadDriver::with_parents(vec![NOrmOwnedRow::new(
+                vec!["id".into()],
+                vec![NOrmValue::I64(1)],
+            )]),
+            relation_sql: None,
+        };
+        let _ = NOrmQueryBuilder::<Parent, _>::new(&mut spy)
+            .preload("kids")
+            .all();
+        let sql = spy.relation_sql.expect("未捕获关联 SQL");
+        assert!(
+            sql.contains("deleted_at IS NULL"),
+            "关联查询必须过滤软删目标行: {sql}"
+        );
+    }
+
+    // ---------- Repository 写操作（时间戳 / 软删除） ----------
+
+    fn make_s(id: i64) -> S {
+        let dt = NOrmDateTime::now_utc();
+        S { id, name: format!("S{id}"), deleted_at: None, created_at: dt.clone(), updated_at: dt }
+    }
+
+    #[test]
+    fn repo_delete_soft_uses_update() {
+        let mut drv = RecordingDriver::default();
+        {
+            let mut repo = crate::repository::NOrmRepository::new(&mut drv);
+            repo.delete::<S>(NOrmValue::I64(7)).unwrap();
+        }
+        let (sql, params) = last(&drv);
+        assert_eq!(sql, "UPDATE soft SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL");
+        assert_eq!(params.len(), 2);
+        assert!(matches!(params[0], NOrmValue::NOrmDateTime(_)));
+        assert_eq!(params[1], NOrmValue::I64(7));
+    }
+
+    #[test]
+    fn repo_hard_delete_keeps_physical_delete() {
+        let mut drv = RecordingDriver::default();
+        {
+            let mut repo = crate::repository::NOrmRepository::new(&mut drv);
+            repo.hard_delete::<S>(NOrmValue::I64(3)).unwrap();
+        }
+        assert_eq!(last(&drv).0, "DELETE FROM soft WHERE id = ?");
+    }
+
+    #[test]
+    fn repo_delete_non_soft_entity_physical() {
+        let mut drv = RecordingDriver::default();
+        {
+            let mut repo = crate::repository::NOrmRepository::new(&mut drv);
+            repo.delete::<T>(NOrmValue::I64(1)).unwrap();
+        }
+        assert_eq!(last(&drv).0, "DELETE FROM t WHERE a = ?");
+    }
+
+    #[test]
+    fn repo_insert_injects_managed_columns() {
+        let mut drv = RecordingDriver::default();
+        let mut s = make_s(0);
+        // 实体自带的值必须被覆盖
+        s.deleted_at = Some(NOrmDateTime::now_utc());
+        {
+            let mut repo = crate::repository::NOrmRepository::new(&mut drv);
+            let _ = repo.insert(&s);
+        }
+        let (sql, params) = last(&drv);
+        assert_eq!(sql, "INSERT INTO soft (name, deleted_at, created_at, updated_at) VALUES (?, ?, ?, ?)");
+        assert_eq!(params[0], NOrmValue::Text("S0".into()));
+        assert_eq!(params[1], NOrmValue::Null); // 软删列强制 NULL
+        assert!(matches!(params[2], NOrmValue::NOrmDateTime(_)));
+        assert!(matches!(params[3], NOrmValue::NOrmDateTime(_)));
+        assert_eq!(params[2], params[3], "created_at 与 updated_at 是同一个 now");
+    }
+
+    #[test]
+    fn repo_update_excludes_created_at_and_guards_soft_delete() {
+        let mut drv = RecordingDriver::default();
+        let s = make_s(5);
+        {
+            let mut repo = crate::repository::NOrmRepository::new(&mut drv);
+            repo.update(&s).unwrap();
+        }
+        let (sql, params) = last(&drv);
+        // created_at 不在 SET，软删守卫在 WHERE
+        assert_eq!(
+            sql,
+            "UPDATE soft SET name = ?, deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL"
+        );
+        assert_eq!(params.len(), 4);
+        assert!(matches!(params[2], NOrmValue::NOrmDateTime(_)));
+        assert_eq!(params[3], NOrmValue::I64(5));
     }
 }

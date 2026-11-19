@@ -157,3 +157,41 @@ fn test_fill_relation() {
     // 未知名 → InvalidInput
     assert!(author.fill_relation("comments", &[]).is_err());
 }
+
+// ─────────────────────────────────────────────
+// 软删除 / 时间戳角色标志
+// ─────────────────────────────────────────────
+
+#[derive(Debug, NOrmEntity)]
+#[entity(table = "audits")]
+struct Audit {
+    #[entity(primary_key, column = "id")]
+    id: i64,
+    #[entity(soft_delete, column = "deleted_at")]
+    deleted_at: Option<nothings_orm::value::NOrmDateTime>,
+    #[entity(created_at)]
+    created_at: nothings_orm::value::NOrmDateTime,
+    #[entity(updated_at, column = "changed_at")]
+    updated_at: nothings_orm::value::NOrmDateTime,
+}
+
+#[test]
+fn test_role_column_metadata() {
+    assert_eq!(Audit::SOFT_DELETE_COL, Some("deleted_at"));
+    assert_eq!(Audit::CREATED_AT_COL, Some("created_at"));
+    assert_eq!(Audit::UPDATED_AT_COL, Some("changed_at"));
+    // 角色字段仍是普通列，参与 schema
+    assert_eq!(Audit::COLUMNS.len(), 4);
+    assert!(Audit::COLUMNS.iter().any(|c| c.name == "deleted_at"));
+
+    // 未标注角色标志的实体三个常量均为 None
+    assert_eq!(User::SOFT_DELETE_COL, None);
+    assert_eq!(User::CREATED_AT_COL, None);
+    assert_eq!(User::UPDATED_AT_COL, None);
+}
+
+#[test]
+fn test_relation_soft_delete_col_meta() {
+    // 目标实体未启用软删除 → None
+    assert_eq!(Author::RELATIONS[0].soft_delete_col, None);
+}

@@ -65,6 +65,12 @@ ANNOTATIONS: dict[str, tuple[str, str]] = {
     "Aes::gcm": ("limited", "C5/C7: nonce 不可复用；key/iv 在 Drop 时不清零"),
     # ORM：这些不是 bug，是使用时必须知道的边界。
     "NOrmQueryBuilder::r#where": ("limited", "ORM1: 列名必须在 E::COLUMNS 白名单内，非法列名延后到 all()/one()/count() 报 InvalidInput"),
+    "NOrmQueryBuilder::unscoped": ("limited", "SD1: 跳过软删除自动过滤，仅影响读；delete/hard_delete/update 不受影响；须在终结方法前调用"),
+    "NOrmRepository::delete": ("limited", "SD2: 声明 soft_delete 时改为 UPDATE deleted_at=now() 且只影响 deleted_at IS NULL 的行；未声明则物理删除"),
+    "NOrmRepository::hard_delete": ("limited", "SD3: 始终物理删除并绕过软删除，不可恢复"),
+    "NOrmRepository::insert": ("limited", "TM3: deleted_at 强制写 NULL；created_at/updated_at 注入 now_utc 并覆盖实体自带值"),
+    "NOrmRepository::update": ("limited", "TM2: created_at 从 SET 排除以保护原值；updated_at 注入 now_utc；有软删时只影响未删行"),
+    "NOrmDateTime::now_utc": ("limited", "TM1: UTC 墙钟，微秒为 0；系统时间早于 UNIX_EPOCH 回退 1970-01-01；MySQL 双时区要求 orm_tz=UTC"),
     "NOrmQueryBuilder::preload": ("limited", "PL1: 支持点分路径 books.comments；首段构造期校验（错则延后报 InvalidInput 且零 SQL），后续段执行期逐层校验；重叠路径自动保留最长；每批最多 NORM_PRELOAD_CHUNK_SIZE(500) 键；需 E: NOrmPreload"),
     "NOrmPreload::fill_relation": ("limited", "PL2: 由 #[derive(NOrmEntity)] 生成，手写 impl 需自行实现；未知名返回 InvalidInput"),
     "NOrmPreload::preload_one": ("limited", "PL4: provided 单层批量入口，封装 apply_preload；一般由宏/递归内部调用"),

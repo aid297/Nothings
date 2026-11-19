@@ -5,7 +5,8 @@ use std::io::{Error, ErrorKind};
 use crate::driver::NOrmDriver;
 use crate::entity::{NOrmEntity, NOrmPreload};
 use crate::query::NOrmQueryBuilder;
-use crate::value::NOrmValue;
+use crate::schema::validate_column;
+use crate::value::{NOrmDateTime, NOrmValue};
 
 /// 泛型仓储，持有驱动的可变借用。
 pub struct NOrmRepository<'a, D: NOrmDriver> {
@@ -45,9 +46,20 @@ impl<'a, D: NOrmDriver> NOrmRepository<'a, D> {
             columns.join(", "),
             placeholders.join(", ")
         );
+        // 托管列：软删列强制 NULL（新行必须未删除）；时间列注入当前 UTC 时间。
+        // 总覆盖实体自带值——钩子是权威的创建/更新时间。
+        let now = NOrmValue::NOrmDateTime(NOrmDateTime::now_utc());
         let values = columns
             .iter()
-            .map(|name| entity.column_value(name))
+            .map(|name| {
+                if Some(*name) == E::SOFT_DELETE_COL {
+                    return Ok(NOrmValue::Null);
+                }
+                if Some(*name) == E::CREATED_AT_COL || Some(*name) == E::UPDATED_AT_COL {
+                    return Ok(now.clone());
+                }
+                entity.column_value(name)
+            })
             .collect::<Result<Vec<_>, _>>()?;
         self.driver.execute(&sql, &values)?;
         self.driver.last_insert_id()
@@ -76,11 +88,17 @@ impl<'a, D: NOrmDriver> NOrmRepository<'a, D> {
     }
 
     /// 按主键更新，返回受影响行数。
+    ///
+    /// 声明 `created_at` 时该列从 SET 中排除（保护数据库里的原始创建时间）；
+    /// 声明 `updated_at` 时注入当前 UTC 时间，覆盖实体自带值。
+    /// 启用软删除时只影响尚未删除的行。
     pub fn update<E: NOrmEntity>(&mut self, entity: &E) -> Result<usize, Error> {
         let pk_name = Self::pk_column::<E>();
         let columns = E::COLUMNS
             .iter()
             .filter(|c| !c.primary_key)
+            // created_at 不参与 SET，避免把库中原值清成 Null
+            .filter(|c| Some(c.name) != E::CREATED_AT_COL)
             .map(|c| c.name)
             .collect::<Vec<_>>();
         if columns.is_empty() {
@@ -93,22 +111,56 @@ impl<'a, D: NOrmDriver> NOrmRepository<'a, D> {
             .iter()
             .map(|c| format!("{c} = ?"))
             .collect::<Vec<_>>();
+        let soft_guard = match E::SOFT_DELETE_COL {
+            Some(name) => Some(validate_column::<E>(name)?),
+            None => None,
+        };
+        let where_sql = match &soft_guard {
+            Some(c) => format!("{pk_name} = ? AND {} IS NULL", c.name),
+            None => format!("{pk_name} = ?"),
+        };
         let sql = format!(
-            "UPDATE {} SET {} WHERE {} = ?",
+            "UPDATE {} SET {} WHERE {}",
             E::TABLE,
             assignments.join(", "),
-            pk_name
+            where_sql
         );
+        let now = NOrmValue::NOrmDateTime(NOrmDateTime::now_utc());
         let mut values = columns
             .iter()
-            .map(|name| entity.column_value(name))
+            .map(|name| {
+                if Some(*name) == E::UPDATED_AT_COL {
+                    return Ok(now.clone());
+                }
+                entity.column_value(name)
+            })
             .collect::<Result<Vec<_>, _>>()?;
         values.push(entity.pk_value());
         self.driver.execute(&sql, &values)
     }
 
     /// 按主键删除，返回受影响行数。
+    ///
+    /// 实体声明 `soft_delete` 时改执行软删除（`UPDATE ... SET deleted_at = now()`，
+    /// 只影响尚未删除的行）；未声明时走物理删除。
     pub fn delete<E: NOrmEntity>(&mut self, pk: NOrmValue) -> Result<usize, Error> {
+        if let Some(name) = E::SOFT_DELETE_COL {
+            let col = validate_column::<E>(name)?;
+            let sql = format!(
+                "UPDATE {} SET {} = ? WHERE {} = ? AND {} IS NULL",
+                E::TABLE,
+                col.name,
+                Self::pk_column::<E>(),
+                col.name
+            );
+            let now = NOrmValue::NOrmDateTime(NOrmDateTime::now_utc());
+            return self.driver.execute(&sql, &[now, pk]);
+        }
+        self.hard_delete::<E>(pk)
+    }
+
+    /// 物理删除，绕过软删除，不可恢复。
+    pub fn hard_delete<E: NOrmEntity>(&mut self, pk: NOrmValue) -> Result<usize, Error> {
         let sql = format!(
             "DELETE FROM {} WHERE {} = ?",
             E::TABLE,

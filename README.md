@@ -45,6 +45,8 @@ nothings-orm-mysql = "0.0.1"    # MySQL 驱动（同步 mysql crate，纯 Rust�
 | crate | 说明 | 文档 |
 |-------|------|------|
 | **nothings-orm** | `#[derive(NOrmEntity)]` 派生宏、静态 schema、`NOrmDriver` / `NOrmRepository` / `NOrmQueryBuilder`、CRUD 与事务；`NOrmCondition` / `NOrmOperator` 支持 OR、嵌套、NOT、比较运算 | [README](nothings-orm/README.md) |
+
+支持软删除（`#[entity(soft_delete)]` + `unscoped()` / `hard_delete()`）、时间戳钩子（`created_at` / `updated_at`）与零依赖 `NOrmDateTime::now_utc()`，详见 [cookbook](docs/orm-cookbook.md)。
 | **nothings-orm-sqlite** | `NOrmSqliteDriver`，rusqlite bundled 实现，仅 native | [README](nothings-orm-sqlite/README.md) |
 | **nothings-orm-mysql** | `NOrmMysqlDriver`，同步 `mysql` crate（`minimal-rust`，无 C/TLS 依赖）；集成测试需真实 MySQL | [README](nothings-orm-mysql/README.md) |
 

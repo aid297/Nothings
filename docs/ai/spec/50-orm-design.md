@@ -150,9 +150,18 @@ query：NOrmQueryBuilder::preload(name: &'static str) where E: NOrmPreload
 - 结果去重：`apply_preload` 按目标主键对结果行去重（保留首次）后再分组填回。
 - 懒加载：`NOrmRepository::load_relation(&mut entity, name)` 支持点分，复用 `preload_path`；单实体 N+1，文档标明。
 
+## Phase 5：软删除 / 时间戳钩子 / 自动时间（2026-11-19 落地）
+
+- 字段标志 `#[entity(soft_delete)]` / `#[entity(created_at)]` / `#[entity(updated_at)]`，列名可用 `column=` 改写。宏生成 `NOrmSchema` 三个带默认值的角色列常量（`SOFT_DELETE_COL` / `CREATED_AT_COL` / `UPDATED_AT_COL`），并给 `NOrmRelation` 添 `soft_delete_col` 让关联查询过滤已删目标行。
+- 读：`NOrmQueryBuilder::unscoped()` 跳过 `deleted_at IS NULL`（JOIN 下 `t0.deleted_at IS NULL`）；用户 WHERE 用 AND 拼接并整体加括号防 OR 抢占。单点注入 `render_where()` 覆盖 all/one/count/find_*；Preload 裸 SQL 单独注入。
+- 写：`delete()` 对启用软删的实体改 UPDATE，`hard_delete()` 物理删除；`insert()` 强制 deleted_at=NULL 并注入时间；`update()` 排除 created_at、注入 updated_at、对已删行返回 0。
+- 自动时间：`NOrmDateTime::now_utc()` 用 SystemTime + UTC，零新依赖、微秒为 0。MySQL 时间钩子须 `orm_tz=UTC`。
+
+**单表 SQL 逐字节一致的承诺仅对未启用软删除的实体成立**：启用后 SELECT/COUNT 的 WHERE 追加 `deleted_at IS NULL`，`unscoped()` 可恢复旧 SQL。未启用实体（含全部既有测试实体）输出与 Phase 1-4 完全一致。
+
 ## 明确不做（YAGNI）
 
-async / tokio；workspace；Cargo features；新公开错误类型；thiserror / anyhow；`serde::Deserialize` 派生；Postgres 驱动；Migration / 钩子实现（SQL JOIN 与递归 Preload 已实现，见 Phase 2/3/4）；trybuild；连接池、缓存、复合主键、UUID 主键、SQL 日志、metrics；改 C-ABI（仓库已移除 wasm 导出层）；`cargo fmt`；新增 CI / Dockerfile / examples / Makefile。
+async / tokio；workspace；Cargo features；新公开错误类型；thiserror / anyhow；`serde::Deserialize` 派生；Postgres 驱动；Migration 实现（SQL JOIN、递归 Preload 与时间戳钩子已实现，见 Phase 2/3/4/5）；trybuild；连接池、缓存、复合主键、UUID 主键、SQL 日志、metrics；改 C-ABI（仓库已移除 wasm 导出层）；`cargo fmt`；新增 CI / Dockerfile / examples / Makefile。
 
 MySQL 驱动已于 2026-11-18 作为独立 crate `nothings-orm-mysql` 落地，核心 / 宏 / SQLite 驱动零改动，设计见 `spec/51-mysql-driver-design.md`；本 spec 的 Phase 1 范围与验收基线不变。
 

@@ -141,12 +141,12 @@ pub struct HttpResponse<T> {
 | `NOrmEntity` | `from_row<R: NOrmRow>` / `pk_value` / `column_value` | 全部由宏生成，调用方需 `use nothings_orm::entity::NOrmEntity as EntityTrait` 才能调 trait 方法 |
 | `NOrmDriver` | `execute` / `query` / `last_insert_id` / `begin` / `commit` / `rollback` | 后端抽象；所有 SQL 必须参数化；驱动 crate 需显式 `use nothings_orm::driver::NOrmDriver` 才能 impl |
 | `NOrmRepository::load_relation` | `&mut E` + `name: &str`，原地补关联、支持点分；单实体 N+1 |
-| `NOrmRepository` | `insert` / `get` / `find_one` / `find_all` / `update` / `delete` / `query` / `transaction` | 泛型 `D: NOrmDriver`；`get` 未找到返 `NotFound`，`find_one` 返 `Ok(None)` |
-| `NOrmQueryBuilder` | `r#where` / `and_where` / `or_where` / `not_where` / `where_op` / `or_where_op` / `where_condition` / `or_where_condition` / `not_where_condition` / `preload` / `order_by` / `limit` / `offset` / `all` / `one` / `count` | 链式 `&mut Self`，条件左折叠、渲染期最小括号；列名必须在 schema 白名单内；MySQL 下 `offset()` 必须搭配 `limit()` |
+| `NOrmRepository` | `insert` / `get` / `find_one` / `find_all` / `update` / `delete` / `hard_delete` / `query` / `load_relation` / `transaction` | 泛型 `D: NOrmDriver`；`get` 未找到返 `NotFound`，`find_one` 返 `Ok(None)` |
+| `NOrmQueryBuilder` | `r#where` / `and_where` / `or_where` / `not_where` / `where_op` / `or_where_op` / `where_condition` / `or_where_condition` / `not_where_condition` / `preload` / `unscoped` / `order_by` / `limit` / `offset` / `all` / `one` / `count` | 链式 `&mut Self`，条件左折叠、渲染期最小括号；列名必须在 schema 白名单内；MySQL 下 `offset()` 必须搭配 `limit()` |
 | `NOrmCondition<E>` / `NOrmOperator` | `eq/ne/gt/ge/lt/le/like/not_like/cmp` / `in_list/not_in_list` / `is_null/is_not_null` / `and/or/group` + `!`（`std::ops::Not`） | `nothings_orm::condition`；条件树可独立构造后注入 `where_condition`；独立构造需显式 `NOrmCondition::<E>` 类型参数 |
 | `NOrmSqliteDriver` | `open(&str)` / `in_memory()` / `execute_batch(&str)` | rusqlite bundled；`execute_batch` 仅供 DDL/测试 |
 | `NOrmMysqlDriver` | `connect(&str)` / `connect_with_tz(&str, NOrmUtcOffset, NOrmUtcOffset)` / `execute_ddl(&str)` | 同步 `mysql` crate（minimal-rust）；`execute_ddl` 单条原始 DDL，不参数化；`impl NOrmDriver` 的 6 个方法在 JSON 中记为 `inherited (trait method)` |
-| `NOrmUtcOffset` / `NOrmDateTime` | `NOrmUtcOffset::parse` / `NOrmDateTime::new` / `parse` / `from_unix_secs` | `nothings-orm::value` 的零依赖时间类型；`NOrmValue::NOrmDateTime` 是时区转换的类型标记，`Text`/`I64` 不转 |
+| `NOrmUtcOffset` / `NOrmDateTime` | `NOrmUtcOffset::parse` / `NOrmDateTime::new` / `parse` / `from_unix_secs` / `now_utc` | `nothings-orm::value` 的零依赖时间类型；`NOrmValue::NOrmDateTime` 是时区转换的类型标记，`Text`/`I64` 不转 |
 
 派生宏生成的方法（`NOrmSchema` / `NOrmEntity` 的 impl）**不进 `public-api.json`**——生成器只扫源码文本，不展开过程宏。查这些 API 看 `nothings-orm/README.md`。
 
@@ -164,6 +164,9 @@ pub struct HttpResponse<T> {
 | 压缩 `compress_file*` | 返回 `Result<(), Error>`，不是压缩后的字节 |
 | `AnyMap::every` | `-> bool`（2026-11-19 修正） |
 | `NOrmEntity::from_row` | trait 方法，需导入 `nothings_orm::entity::NOrmEntity as EntityTrait`；crate 根的同名 `NOrmEntity` 是派生宏 |
+| `NOrmQueryBuilder::unscoped` | 跳过软删除读过滤；不影响写操作，须在终结方法前调用 |
+| `NOrmRepository::delete` | 声明 soft_delete 时改 UPDATE deleted_at=now()，否则物理删除；`hard_delete` 始终物理删除 |
+| `NOrmDateTime::now_utc` | UTC 墙钟（微秒 0，零新依赖）；MySQL 时间钩子须 `orm_tz=UTC` |
 | `NOrmQueryBuilder::r#where` | raw identifier，列名必须在 `E::COLUMNS` 白名单内 |
 | `NOrmQueryBuilder::preload` | `name: &'static str` + `where E: NOrmPreload`；支持点分路径 `books.comments`；首段构造期校验（错则零 SQL），后续段执行期逐层校验；重叠路径保留最长；每批最多 500 键 |
 | 条件链的连接顺序 | 左折叠：`a AND b OR c` 解析为 `(a AND b) OR c`，不按 SQL 优先级重排；首项 `or_where` 退化为裸首项 |

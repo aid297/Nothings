@@ -775,13 +775,38 @@ impl NOrmDriver for MyDriver {
 - 连接池、缓存
 - 递归/多层关联预加载与懒加载均已支持，见 6.2
 - Migration（建表靠驱动 DDL）
-- 软删除、时间戳钩子
 - 批量插入 / upsert
 - 复合主键、UUID 主键
 - 自定义错误类型（统一 `std::io::Error`）
 - SQL 日志、metrics
 
-这些在 Phase 2 路线里只规划未实现，见 [`ai/spec/50-orm-design.md`](ai/spec/50-orm-design.md)。
+软删除、时间戳钩子与自动时间已支持，见下方新增章节；其余在 Phase 2 路线里只规划未实现，见 [`ai/spec/50-orm-design.md`](ai/spec/50-orm-design.md)。
+
+---
+
+## 16. 软删除、时间戳钩子与自动时间
+
+```rust
+#[derive(NOrmEntity)]
+#[entity(table = "notes")]
+struct Note {
+    #[entity(primary_key, column = "id")]
+    id: i64,
+    #[entity(soft_delete, column = "deleted_at")]
+    deleted_at: Option<NOrmDateTime>,
+    #[entity(created_at)]
+    created_at: NOrmDateTime,
+    #[entity(updated_at)]
+    updated_at: NOrmDateTime,
+}
+```
+
+- `soft_delete` 字段必须是 `Option<NOrmDateTime>`；其它两个必须是 `NOrmDateTime` 或 `Option<NOrmDateTime>`；三者互斥、不能是主键或关联字段。
+- 读：所有查询自动加 `deleted_at IS NULL`；`repo.query::<Note>().unscoped().all()` 可见已删行（仅影响读）。
+- 写：`repo.delete(pk)` 改 `UPDATE ... SET deleted_at=now()`；`repo.hard_delete(pk)` 才是物理删除；`update()` 不会修改已删行。
+- 时间：`insert` 注入 created_at/updated_at（同一时刻），`update` 只刷新 updated_at。**总覆盖实体自带值、不写回内存实体**，需重新查询才见新值。
+- `NOrmDateTime::now_utc()` 取 UTC 墙钟（微秒为 0，零新依赖）。**MySQL 使用时间钩子必须用 `connect_with_tz(NOrmUtcOffset::UTC, db_tz)`**，否则注入值会偏移；SQLite 无此问题。
+- DDL 示例：`deleted_at DATETIME(6) NULL, created_at DATETIME(6) NOT NULL, updated_at DATETIME(6) NOT NULL`。
 
 ---
 
